@@ -1,0 +1,8 @@
+{
+  "name": "The Sovereign Architect",
+  "description": "A strategic dashboard and automation hub for the Brzi Ecosystem, featuring DBZ Power Scaling, Generative Art Studios, and Deep Strategic Analysis tools powered by Gemini.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ]
+}
