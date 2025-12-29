@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { DBZStats } from '../types';
-import { generateDBZTaunt, generateSpeech } from '../services/geminiService';
+import { generateDBZTaunt, generateSpeech, decodePCM } from '../services/geminiService';
 
 const DBZScanner: React.FC = () => {
   const [stats, setStats] = useState<DBZStats>({
@@ -18,15 +18,13 @@ const DBZScanner: React.FC = () => {
   };
 
   const calculatePower = () => {
-      // V7 Formula from text
       const force = (stats.anger * 3) + (stats.determination * 2) + (stats.excitement * 1.5) + stats.concentration;
       const debuff = (stats.fear * 2) + (stats.sadness * 1.5) + stats.confusion + stats.anxiety;
       const control = 1 + (stats.calmness * 2) + (stats.serenity * 1.5) + stats.contemplation;
       
       let base = (force - debuff) * 1000;
-      let multiplier = control / 10; // Normalize control
+      let multiplier = control / 10;
 
-      // Synergy logic
       if (stats.anger > 7 && stats.calmness < 3) multiplier *= 0.7; // Uncontrolled Rage
       if (stats.anger > 7 && stats.calmness > 7) multiplier *= 1.5; // Ultra Instinct
 
@@ -40,23 +38,18 @@ const DBZScanner: React.FC = () => {
       setIsScanning(true);
       const power = calculatePower();
       try {
-          // 1. Get Text Taunt
-          const taunt = await generateDBZTaunt(power, { anger: stats.anger, calm: stats.calmness }); // Simplify sent stats
+          const taunt = await generateDBZTaunt(power, { anger: stats.anger, calm: stats.calmness });
           
           setResult({ power, taunt });
 
-          // 2. TTS
           const audioBase64 = await generateSpeech(taunt, power > 500000 ? 'Kore' : 'Fenrir');
           if (audioBase64) {
               const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
               audioContextRef.current = ctx;
               
-              const binaryString = atob(audioBase64);
-              const len = binaryString.length;
-              const bytes = new Uint8Array(len);
-              for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
+              // Correctly decode raw PCM (24kHz default for Gemini TTS)
+              const buffer = decodePCM(audioBase64, ctx, 24000);
               
-              const buffer = await ctx.decodeAudioData(bytes.buffer);
               const source = ctx.createBufferSource();
               source.buffer = buffer;
               source.connect(ctx.destination);

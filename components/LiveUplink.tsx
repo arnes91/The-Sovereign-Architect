@@ -1,6 +1,6 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
-import { base64ToUint8Array, arrayBufferToBase64 } from '../services/geminiService';
+import { arrayBufferToBase64, decodePCM } from '../services/geminiService';
 
 const LiveUplink: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -67,15 +67,7 @@ const LiveUplink: React.FC = () => {
              const base64Audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
              if (base64Audio && outputAudioContextRef.current) {
                  const ctx = outputAudioContextRef.current;
-                 const audioBytes = base64ToUint8Array(base64Audio);
-                 
-                 // Decode raw PCM 24000Hz
-                 const dataInt16 = new Int16Array(audioBytes.buffer);
-                 const audioBuffer = ctx.createBuffer(1, dataInt16.length, 24000);
-                 const channelData = audioBuffer.getChannelData(0);
-                 for(let i=0; i<dataInt16.length; i++) {
-                     channelData[i] = dataInt16[i] / 32768.0;
-                 }
+                 const audioBuffer = decodePCM(base64Audio, ctx, 24000);
                  
                  const source = ctx.createBufferSource();
                  source.buffer = audioBuffer;

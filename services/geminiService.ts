@@ -2,12 +2,45 @@ import { GoogleGenAI, Type, Modality } from "@google/genai";
 
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+// --- Helpers ---
+
+export function base64ToUint8Array(base64: string) {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+export function arrayBufferToBase64(buffer: ArrayBuffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+export function decodePCM(base64: string, ctx: AudioContext, sampleRate: number = 24000): AudioBuffer {
+  const bytes = base64ToUint8Array(base64);
+  const dataInt16 = new Int16Array(bytes.buffer);
+  const buffer = ctx.createBuffer(1, dataInt16.length, sampleRate);
+  const channelData = buffer.getChannelData(0);
+  
+  for (let i = 0; i < dataInt16.length; i++) {
+      channelData[i] = dataInt16[i] / 32768.0;
+  }
+  return buffer;
+}
+
 // --- DBZ Scanner ---
 
 export const generateDBZTaunt = async (powerLevel: number, stats: any) => {
   const ai = getAI();
   
-  // Decide persona based on logic from text
   const isHighTier = powerLevel > 500000;
   const persona = isHighTier ? "Whis (Angel Attendant)" : "Frieza (Tyrant)";
   
@@ -26,7 +59,7 @@ export const generateDBZTaunt = async (powerLevel: number, stats: any) => {
   `;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash-preview-09-2025', // Using specific preview model as requested for text
+    model: 'gemini-2.5-flash-preview-09-2025',
     contents: prompt,
     config: {
       temperature: 0.9,
@@ -59,7 +92,6 @@ export const generateSpeech = async (text: string, voiceName: 'Kore' | 'Fenrir' 
 
 export const generateImage = async (prompt: string, aspectRatio: string = "16:9", size: string = "1K") => {
     const ai = getAI();
-    // Using Pro Image Preview for high quality and size controls
     const response = await ai.models.generateContent({
         model: 'gemini-3-pro-image-preview',
         contents: {
@@ -86,7 +118,6 @@ export const generateImage = async (prompt: string, aspectRatio: string = "16:9"
 
 export const editImage = async (base64Image: string, prompt: string) => {
     const ai = getAI();
-    // Using 2.5 Flash Image for editing (Nano banana)
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: {
@@ -94,7 +125,7 @@ export const editImage = async (base64Image: string, prompt: string) => {
                 {
                     inlineData: {
                         data: base64Image.split(',')[1],
-                        mimeType: 'image/png', // Assuming PNG for canvas exports
+                        mimeType: 'image/png',
                     },
                 },
                 { text: prompt },
@@ -118,13 +149,13 @@ export const editImage = async (base64Image: string, prompt: string) => {
 export const streamStrategyChat = async function* (history: any[], newMessage: string, mode: 'THINKING' | 'SEARCH' | 'FAST') {
   const ai = getAI();
   
-  let model = 'gemini-3-flash-preview'; // Default
+  let model = 'gemini-3-flash-preview';
   let config: any = {};
   
   if (mode === 'THINKING') {
       model = 'gemini-3-pro-preview';
       config = {
-          thinkingConfig: { thinkingBudget: 16000 } // Allocate budget
+          thinkingConfig: { thinkingBudget: 16000 }
       };
   } else if (mode === 'SEARCH') {
       model = 'gemini-3-flash-preview';
@@ -132,7 +163,7 @@ export const streamStrategyChat = async function* (history: any[], newMessage: s
           tools: [{ googleSearch: {} }]
       };
   } else if (mode === 'FAST') {
-      model = 'gemini-2.5-flash-lite-latest'; // Or specific lite model
+      model = 'gemini-2.5-flash-lite-latest';
   }
 
   const chat = ai.chats.create({
@@ -150,26 +181,3 @@ export const streamStrategyChat = async function* (history: any[], newMessage: s
       yield chunk;
   }
 };
-
-// --- Live Uplink helpers ---
-// Basic helpers for audio decoding/encoding as per Google guidelines
-
-export function base64ToUint8Array(base64: string) {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
-}
-
-export function arrayBufferToBase64(buffer: ArrayBuffer) {
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
