@@ -1,6 +1,11 @@
 import React from 'react';
+import { View } from '../types';
 
-const Dashboard: React.FC = () => {
+interface DashboardProps {
+    onNavigate?: (view: View) => void;
+}
+
+const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   return (
     <div className="p-6 h-full overflow-y-auto">
         <header className="mb-12">
@@ -9,6 +14,24 @@ const Dashboard: React.FC = () => {
                 A strategic ecosystem integrating high-frequency creative output with rigorous, enterprise-grade technical infrastructure.
             </p>
         </header>
+
+        {/* Quick Actions */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+            {[
+                { label: 'NEW CONCEPT', view: View.CONCEPT_STUDIO, color: 'border-cyber-purple text-cyber-purple' },
+                { label: 'POWER SCAN', view: View.DBZ_SCANNER, color: 'border-red-500 text-red-500' },
+                { label: 'STRATEGY', view: View.DEEP_ARCHITECT, color: 'border-white text-white' },
+                { label: 'COMPOSE', view: View.AI_COMPOSER, color: 'border-cyber-green text-cyber-green' },
+            ].map((action, i) => (
+                <button
+                    key={i}
+                    onClick={() => onNavigate?.(action.view)}
+                    className={`p-4 border bg-zinc-900/50 hover:bg-zinc-800 transition-colors rounded-lg font-mono font-bold text-xs tracking-widest ${action.color}`}
+                >
+                    + {action.label}
+                </button>
+            ))}
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-lg hover:border-cyber-green transition-colors group">

@@ -59,11 +59,13 @@ const DBZScanner: React.FC = () => {
 
       } catch (e) {
           console.error(e);
-          // Safety: Don't let a failed scan crash the UI state permanently
       } finally {
           setIsScanning(false);
       }
   };
+
+  // Visual calculation for bar width (max power ~10M for visualization purposes)
+  const powerPercentage = result ? Math.min(100, (result.power / 2000000) * 100) : 0;
 
   return (
     <div className="h-full flex flex-col md:flex-row gap-6 p-6">
@@ -123,12 +125,25 @@ const DBZScanner: React.FC = () => {
             </div>
 
             {result ? (
-                <div className="z-20 text-center p-8 w-full">
+                <div className="z-20 text-center p-8 w-full flex flex-col items-center">
                     <div className="text-sm font-mono text-cyber-green mb-2 animate-pulse">POWER LEVEL CONFIRMED</div>
-                    <div className="text-6xl md:text-8xl font-black font-sans text-white tracking-tighter mb-8 tabular-nums">
+                    <div className="text-6xl md:text-8xl font-black font-sans text-white tracking-tighter mb-6 tabular-nums relative">
                         {result.power.toLocaleString()}
+                        <div className="text-xs absolute -top-4 -right-4 bg-red-600 px-2 py-0.5 rounded text-white font-mono">
+                            {result.power > 1000000 ? 'SSJ' : result.power > 9000 ? 'OVER 9000' : 'BASE'}
+                        </div>
                     </div>
-                    <div className="bg-zinc-900/80 p-6 border-l-4 border-red-500 text-left max-w-md mx-auto">
+                    
+                    {/* Power Visual Bar */}
+                    <div className="w-64 h-2 bg-zinc-800 rounded-full mb-8 overflow-hidden relative">
+                        <div 
+                            className="h-full bg-gradient-to-r from-green-500 via-yellow-400 to-red-600 transition-all duration-1000 ease-out"
+                            style={{ width: `${powerPercentage}%` }}
+                        ></div>
+                        <div className="absolute top-0 right-0 h-full w-1 bg-white animate-pulse"></div>
+                    </div>
+
+                    <div className="bg-zinc-900/80 p-6 border-l-4 border-red-500 text-left max-w-md mx-auto relative">
                         <p className="text-xs text-zinc-500 font-mono mb-1">PERSONA COMMENTARY</p>
                         <p className="font-sans text-lg italic text-zinc-200">"{result.taunt}"</p>
                     </div>

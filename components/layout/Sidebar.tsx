@@ -12,9 +12,14 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
     { id: View.AI_COMPANION, label: 'AI COMPANION', icon: 'M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z' },
     { id: View.DBZ_SCANNER, label: 'DBZ SCANNER', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
     { id: View.CONCEPT_STUDIO, label: 'CONCEPT STUDIO', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
+    { id: View.AI_COMPOSER, label: 'AI COMPOSER', icon: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3' },
     { id: View.DEEP_ARCHITECT, label: 'STRATEGY NODE', icon: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z' },
     { id: View.LIVE_UPLINK, label: 'LIVE UPLINK', icon: 'M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.536a5 5 0 001.414 1.414m2.828-9.9a9 9 0 012.728 0M12 12a3 3 0 100-6 3 3 0 000 6z' },
   ];
+
+  const showInfo = (label: string) => {
+      alert(`DOCS: Viewing documentation for ${label}.\nRef: WORKFLOW.md`);
+  };
 
   return (
     <div className="w-64 border-r border-zinc-800 bg-black flex flex-col h-full hidden md:flex">
@@ -25,18 +30,26 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
       
       <nav className="flex-1 px-4 space-y-2">
         {menu.map(item => (
-          <button
-            key={item.id}
-            onClick={() => setView(item.id)}
-            className={`w-full flex items-center gap-3 px-4 py-3 text-xs font-bold font-mono tracking-widest rounded transition-all ${
-              currentView === item.id 
-              ? 'bg-zinc-900 text-white border border-zinc-700' 
-              : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} /></svg>
-            {item.label}
-          </button>
+          <div key={item.id} className="flex items-center gap-2 group">
+              <button
+                onClick={() => setView(item.id)}
+                className={`flex-1 flex items-center gap-3 px-4 py-3 text-xs font-bold font-mono tracking-widest rounded transition-all ${
+                  currentView === item.id 
+                  ? 'bg-zinc-900 text-white border border-zinc-700' 
+                  : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} /></svg>
+                {item.label}
+              </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); showInfo(item.label); }}
+                className="p-2 text-zinc-700 hover:text-cyber-green opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Module Info"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </button>
+          </div>
         ))}
       </nav>
 

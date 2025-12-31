@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { PERSONALITIES } from '../config/personalities';
+import { PROMPT_TEMPLATES } from '../config/promptTemplates';
 
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -48,17 +49,11 @@ export const generateDBZTaunt = async (powerLevel: number, stats: any) => {
   
   const selectedPersona = isHighTier ? tiers.HIGH : tiers.LOW;
   
-  const prompt = `
-    Role: ${selectedPersona.instruction}
-    Context: A fighter has just been scanned.
-    Power Level: ${powerLevel.toLocaleString()}
-    Top Emotions: ${JSON.stringify(stats)}
-    
-    Task: Deliver a "Persona Taunt" (commentary). 
-    Constraints: 
-    - Exactly two sentences.
-    - Use the emotions to explain the power level.
-  `;
+  const prompt = PROMPT_TEMPLATES.DBZ_TAUNT(
+    selectedPersona.instruction,
+    powerLevel.toLocaleString(),
+    JSON.stringify(stats)
+  );
 
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
@@ -185,4 +180,27 @@ export const streamStrategyChat = async function* (history: any[], newMessage: s
   for await (const chunk of stream) {
       yield chunk;
   }
+};
+
+// --- AI Composer ---
+
+export const generateMusicalConcept = async (genre: string, mood: string, elements: string) => {
+    const ai = getAI();
+    const prompt = PROMPT_TEMPLATES.AI_COMPOSER(genre, mood, elements);
+    
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: {
+            responseMimeType: "application/json",
+            temperature: 1
+        }
+    });
+
+    try {
+        return JSON.parse(response.text || "{}");
+    } catch (e) {
+        console.error("Failed to parse music JSON", e);
+        return null;
+    }
 };

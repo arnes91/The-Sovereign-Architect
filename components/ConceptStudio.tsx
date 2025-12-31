@@ -3,25 +3,40 @@ import { generateImage, editImage } from '../services/geminiService';
 
 const ConceptStudio: React.FC = () => {
   const [prompt, setPrompt] = useState('');
+  const [negativePrompt, setNegativePrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState('16:9');
   const [size, setSize] = useState('1K');
+  const [stylePreset, setStylePreset] = useState('NONE');
   const [loading, setLoading] = useState(false);
   const [currentImage, setCurrentImage] = useState<string | null>(null);
   const [mode, setMode] = useState<'GENERATE' | 'EDIT'>('GENERATE');
   
-  // Ref for file input
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const applyPreset = (basePrompt: string) => {
+      switch(stylePreset) {
+          case 'CYBERPUNK': return `${basePrompt}, cyberpunk aesthetics, neon lights, high contrast, futuristic, glitch art`;
+          case 'ANIME': return `${basePrompt}, anime style, studio ghibli inspired, vibrant colors, detailed background`;
+          case 'REALISTIC': return `${basePrompt}, photorealistic, 8k resolution, cinematic lighting, highly detailed`;
+          case 'VINTAGE': return `${basePrompt}, vintage 90s style, film grain, retro aesthetic, vhs overlay`;
+          default: return basePrompt;
+      }
+  };
 
   const handleAction = async () => {
     if (!prompt) return;
     setLoading(true);
     try {
         let result: string | null = null;
+        let finalPrompt = applyPreset(prompt);
+        if (negativePrompt) {
+            finalPrompt += ` --negative_prompt ${negativePrompt}`; // Note: Gemini prompt structure varies, appending for context
+        }
         
         if (mode === 'GENERATE') {
-            result = await generateImage(prompt, aspectRatio, size);
+            result = await generateImage(finalPrompt, aspectRatio, size);
         } else if (mode === 'EDIT' && currentImage) {
-            result = await editImage(currentImage, prompt);
+            result = await editImage(currentImage, finalPrompt);
         }
 
         if (result) {
@@ -72,32 +87,52 @@ const ConceptStudio: React.FC = () => {
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
         {/* Controls */}
-        <div className="bg-zinc-900/50 p-6 border border-zinc-800 flex flex-col gap-6 h-fit">
+        <div className="bg-zinc-900/50 p-6 border border-zinc-800 flex flex-col gap-6 h-fit overflow-y-auto max-h-full">
             <div className="flex flex-col gap-2">
                 <label className="text-xs font-mono text-cyber-green">PROMPT INSTRUCTION</label>
                 <textarea 
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
-                    className="bg-black border border-zinc-700 p-3 text-sm text-zinc-200 focus:border-cyber-purple outline-none h-32 resize-none font-mono"
-                    placeholder={mode === 'GENERATE' ? "Describe the vision..." : "Describe the edit (e.g., 'Add a neon glitch effect')..."}
+                    className="bg-black border border-zinc-700 p-3 text-sm text-zinc-200 focus:border-cyber-purple outline-none h-24 resize-none font-mono"
+                    placeholder={mode === 'GENERATE' ? "Describe the vision..." : "Describe the edit..."}
+                />
+            </div>
+            
+            <div className="flex flex-col gap-2">
+                <label className="text-xs font-mono text-red-400">NEGATIVE PROMPT (OPTIONAL)</label>
+                <input 
+                    type="text"
+                    value={negativePrompt}
+                    onChange={(e) => setNegativePrompt(e.target.value)}
+                    className="bg-black border border-zinc-700 p-2 text-sm text-zinc-200 focus:border-red-500 outline-none font-mono"
+                    placeholder="Blur, low quality, distortion..."
                 />
             </div>
 
             {mode === 'GENERATE' && (
                 <>
                     <div className="flex flex-col gap-2">
+                        <label className="text-xs font-mono text-cyber-green">STYLE PRESET</label>
+                        <select value={stylePreset} onChange={(e) => setStylePreset(e.target.value)} className="bg-black border border-zinc-700 p-2 text-sm text-zinc-200 font-mono outline-none">
+                            <option value="NONE">None (Raw)</option>
+                            <option value="CYBERPUNK">Cyberpunk</option>
+                            <option value="ANIME">Anime / Ghibli</option>
+                            <option value="REALISTIC">Photorealistic</option>
+                            <option value="VINTAGE">Vintage / Retro</option>
+                        </select>
+                    </div>
+                    <div className="flex flex-col gap-2">
                         <label className="text-xs font-mono text-cyber-green">ASPECT RATIO</label>
-                        <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)} className="bg-black border border-zinc-700 p-2 text-sm text-zinc-200 font-mono">
+                        <select value={aspectRatio} onChange={(e) => setAspectRatio(e.target.value)} className="bg-black border border-zinc-700 p-2 text-sm text-zinc-200 font-mono outline-none">
                             <option value="1:1">1:1 (Square)</option>
                             <option value="16:9">16:9 (Landscape)</option>
                             <option value="9:16">9:16 (Portrait)</option>
-                            <option value="4:3">4:3 (Standard)</option>
                             <option value="21:9">21:9 (Ultrawide)</option>
                         </select>
                     </div>
                     <div className="flex flex-col gap-2">
                         <label className="text-xs font-mono text-cyber-green">RESOLUTION</label>
-                        <select value={size} onChange={(e) => setSize(e.target.value)} className="bg-black border border-zinc-700 p-2 text-sm text-zinc-200 font-mono">
+                        <select value={size} onChange={(e) => setSize(e.target.value)} className="bg-black border border-zinc-700 p-2 text-sm text-zinc-200 font-mono outline-none">
                             <option value="1K">1K (Fast)</option>
                             <option value="2K">2K (High Def)</option>
                             <option value="4K">4K (Ultra)</option>

@@ -8,10 +8,50 @@ const DeepArchitect: React.FC = () => {
   const [messages, setMessages] = useState<any[]>([]);
   const [mode, setMode] = useState<'THINKING' | 'SEARCH' | 'FAST'>('THINKING');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  // Ref for speech recognition
+  const recognitionRef = useRef<any>(null);
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   useEffect(scrollToBottom, [messages]);
+
+  useEffect(() => {
+    // Init Speech Recognition if available
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+        recognitionRef.current = new SpeechRecognition();
+        recognitionRef.current.continuous = false;
+        recognitionRef.current.interimResults = false;
+        recognitionRef.current.lang = 'en-US';
+        
+        recognitionRef.current.onresult = (event: any) => {
+            const transcript = event.results[0][0].transcript;
+            setInput(prev => prev + (prev ? ' ' : '') + transcript);
+            setIsListening(false);
+        };
+        
+        recognitionRef.current.onerror = (event: any) => {
+            console.error('Speech recognition error', event.error);
+            setIsListening(false);
+        };
+        
+        recognitionRef.current.onend = () => {
+            setIsListening(false);
+        };
+    }
+  }, []);
+
+  const toggleListening = () => {
+      if (!recognitionRef.current) return;
+      if (isListening) {
+          recognitionRef.current.stop();
+      } else {
+          setIsListening(true);
+          recognitionRef.current.start();
+      }
+  };
 
   const sendMessage = async () => {
     if (!input.trim() || isStreaming) return;
@@ -21,20 +61,18 @@ const DeepArchitect: React.FC = () => {
     setInput('');
     setIsStreaming(true);
 
-    // Prepare history for API (exclude local-only fields if any)
     const apiHistory = messages.map(m => ({ role: m.role, parts: [{ text: m.content }] }));
 
     try {
         let fullResponse = '';
         let groundingData: GroundingMetadata | null = null;
         
-        // Add placeholder for model response
         setMessages(prev => [...prev, { role: 'model', content: '', type: 'model', isThinking: mode === 'THINKING' }]);
 
         const stream = streamStrategyChat(apiHistory, userMsg.content, mode);
         
         for await (const chunk of stream) {
-            const text = chunk.text; // Access text via property, not method
+            const text = chunk.text;
             if (text) {
                 fullResponse += text;
                 setMessages(prev => {
@@ -49,7 +87,6 @@ const DeepArchitect: React.FC = () => {
             }
         }
         
-        // Final update with grounding data
         if (groundingData) {
             setMessages(prev => {
                 const newArr = [...prev];
@@ -124,20 +161,33 @@ const DeepArchitect: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="relative">
+      <div className="relative flex gap-2">
+        {/* Voice Input Button */}
+        <button
+            onClick={toggleListening}
+            className={`p-4 rounded-lg border transition-all ${
+                isListening 
+                ? 'bg-red-600 text-white border-red-500 animate-pulse' 
+                : 'bg-zinc-900 text-zinc-400 border-zinc-700 hover:text-white'
+            }`}
+            title="Toggle Voice Input"
+        >
+             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+        </button>
+
         <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-            placeholder={mode === 'THINKING' ? "Ask a complex strategic question..." : "Ask for market intel..."}
-            className="w-full bg-zinc-900 border border-zinc-700 rounded-lg py-4 px-6 text-white font-sans focus:outline-none focus:border-cyber-green transition-colors pr-16"
+            placeholder={isListening ? "Listening..." : mode === 'THINKING' ? "Ask a complex strategic question..." : "Ask for market intel..."}
+            className="flex-1 bg-zinc-900 border border-zinc-700 rounded-lg py-4 px-6 text-white font-sans focus:outline-none focus:border-cyber-green transition-colors"
             disabled={isStreaming}
         />
         <button 
             onClick={sendMessage}
             disabled={isStreaming}
-            className="absolute right-2 top-2 bottom-2 aspect-square bg-zinc-800 hover:bg-zinc-700 text-white rounded-md flex items-center justify-center disabled:opacity-50"
+            className="bg-zinc-800 hover:bg-zinc-700 text-white p-4 rounded-lg flex items-center justify-center disabled:opacity-50 min-w-[3.5rem]"
         >
             {isStreaming ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>

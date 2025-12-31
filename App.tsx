@@ -10,28 +10,29 @@ import ConceptStudio from './components/ConceptStudio';
 import DeepArchitect from './components/DeepArchitect';
 import LiveUplink from './components/LiveUplink';
 import AICompanion from './components/modules/AICompanion';
+import AIComposer from './components/modules/AIComposer';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
 
   const renderView = () => {
-    // We wrap every component in ModuleGuard. 
-    // If DBZScanner crashes, ConceptStudio is unaffected.
     switch (currentView) {
       case View.DASHBOARD: 
-        return <ModuleGuard moduleName="Dashboard"><Dashboard /></ModuleGuard>;
+        return <ModuleGuard moduleName="Dashboard"><Dashboard onNavigate={setCurrentView} /></ModuleGuard>;
       case View.AI_COMPANION:
         return <ModuleGuard moduleName="AI Companion"><AICompanion /></ModuleGuard>;
       case View.DBZ_SCANNER: 
         return <ModuleGuard moduleName="DBZ Scanner"><DBZScanner /></ModuleGuard>;
       case View.CONCEPT_STUDIO: 
         return <ModuleGuard moduleName="Concept Studio"><ConceptStudio /></ModuleGuard>;
+      case View.AI_COMPOSER: 
+        return <ModuleGuard moduleName="AI Composer"><AIComposer /></ModuleGuard>;
       case View.DEEP_ARCHITECT: 
         return <ModuleGuard moduleName="Deep Architect"><DeepArchitect /></ModuleGuard>;
       case View.LIVE_UPLINK: 
         return <ModuleGuard moduleName="Live Uplink"><LiveUplink /></ModuleGuard>;
       default: 
-        return <ModuleGuard moduleName="Dashboard"><Dashboard /></ModuleGuard>;
+        return <ModuleGuard moduleName="Dashboard"><Dashboard onNavigate={setCurrentView} /></ModuleGuard>;
     }
   };
 
@@ -54,7 +55,6 @@ const App: React.FC = () => {
 
         <div className="flex-1 overflow-hidden relative">
             {renderView()}
-            {/* Global Grain/Overlay Effect */}
             <div className="pointer-events-none absolute inset-0 opacity-[0.03] bg-[url('https://upload.wikimedia.org/wikipedia/commons/7/76/Noise.png')] z-50"></div>
         </div>
       </main>
