@@ -42,11 +42,8 @@ export function decodePCM(base64: string, ctx: AudioContext, sampleRate: number 
 
 export const generateDBZTaunt = async (powerLevel: number, stats: any) => {
   const ai = getAI();
-  
-  // Use Centralized Personality Config
   const tiers = PERSONALITIES.DBZ_SCANNER.tiers;
   const isHighTier = powerLevel > tiers.HIGH.threshold;
-  
   const selectedPersona = isHighTier ? tiers.HIGH : tiers.LOW;
   
   const prompt = PROMPT_TEMPLATES.DBZ_TAUNT(
@@ -58,9 +55,7 @@ export const generateDBZTaunt = async (powerLevel: number, stats: any) => {
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: prompt,
-    config: {
-      temperature: 0.9,
-    }
+    config: { temperature: 0.9 }
   });
 
   return {
@@ -84,23 +79,22 @@ export const generateSpeech = async (text: string, voiceName: string) => {
         },
     });
 
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    return base64Audio;
+    return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
 };
 
 // --- Concept Studio (Image Gen/Edit) ---
 
-export const generateImage = async (prompt: string, aspectRatio: string = "16:9", size: string = "1K") => {
+export const generateImage = async (prompt: string, aspectRatio: string = "1:1") => {
     const ai = getAI();
+    // Using gemini-2.5-flash-image for standard free generation
     const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-image-preview',
+        model: 'gemini-2.5-flash-image',
         contents: {
             parts: [{ text: prompt }],
         },
         config: {
             imageConfig: {
                 aspectRatio: aspectRatio as any,
-                imageSize: size as any,
             },
         },
     });
@@ -109,14 +103,14 @@ export const generateImage = async (prompt: string, aspectRatio: string = "16:9"
     if (parts) {
         for (const part of parts) {
             if (part.inlineData) {
-                return `data:image/png;base64,${part.inlineData.data}`;
+                return part.inlineData.data; // Return raw base64
             }
         }
     }
     return null;
 };
 
-export const editImage = async (base64Image: string, prompt: string) => {
+export const editImage = async (base64Image: string, mimeType: string, prompt: string) => {
     const ai = getAI();
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
@@ -124,8 +118,8 @@ export const editImage = async (base64Image: string, prompt: string) => {
             parts: [
                 {
                     inlineData: {
-                        data: base64Image.split(',')[1],
-                        mimeType: 'image/png',
+                        data: base64Image,
+                        mimeType: mimeType,
                     },
                 },
                 { text: prompt },
@@ -133,16 +127,78 @@ export const editImage = async (base64Image: string, prompt: string) => {
         },
     });
 
-     const parts = response.candidates?.[0]?.content?.parts;
+    const parts = response.candidates?.[0]?.content?.parts;
     if (parts) {
         for (const part of parts) {
             if (part.inlineData) {
-                return `data:image/png;base64,${part.inlineData.data}`;
+                return part.inlineData.data; // Return raw base64
             }
         }
     }
     return null;
 };
+
+// --- Content Analyzer ---
+
+export const analyzeImage = async (prompt: string, image: { data: string, mimeType: string }) => {
+    const ai = getAI();
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: {
+            parts: [
+                { inlineData: { data: image.data, mimeType: image.mimeType } },
+                { text: prompt }
+            ]
+        }
+    });
+    return response.text || "No analysis available.";
+};
+
+export const analyzeVideo = async (prompt: string, video: { data: string, mimeType: string }) => {
+    const ai = getAI();
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: {
+            parts: [
+                { inlineData: { data: video.data, mimeType: video.mimeType } },
+                { text: prompt }
+            ]
+        }
+    });
+    return response.text || "No analysis available.";
+};
+
+export const transcribeAudio = async (prompt: string, audio: { data: string, mimeType: string }) => {
+    const ai = getAI();
+    const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+        contents: {
+            parts: [
+                { inlineData: { data: audio.data, mimeType: audio.mimeType } },
+                { text: prompt }
+            ]
+        }
+    });
+    return response.text || "Transcription failed.";
+};
+
+export const complexAnalysis = async (prompt: string, media: { data: string, mimeType: string }) => {
+    const ai = getAI();
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview',
+        contents: {
+            parts: [
+                { inlineData: { data: media.data, mimeType: media.mimeType } },
+                { text: prompt }
+            ]
+        },
+        config: {
+            thinkingConfig: { thinkingBudget: 16000 }
+        }
+    });
+    return response.text || "Analysis failed.";
+};
+
 
 // --- Deep Architect (Chat + Strategy) ---
 
