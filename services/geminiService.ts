@@ -61,7 +61,7 @@ export const generateDBZTaunt = async (powerLevel: number, stats: any) => {
   `;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.5-flash-preview-09-2025',
+    model: 'gemini-3-flash-preview',
     contents: prompt,
     config: {
       temperature: 0.9,
@@ -151,7 +151,7 @@ export const editImage = async (base64Image: string, prompt: string) => {
 
 // --- Deep Architect (Chat + Strategy) ---
 
-export const streamStrategyChat = async function* (history: any[], newMessage: string, mode: 'THINKING' | 'SEARCH' | 'FAST') {
+export const streamStrategyChat = async function* (history: any[], newMessage: string, mode: 'THINKING' | 'SEARCH' | 'FAST', systemInstruction?: string) {
   const ai = getAI();
   
   let model = 'gemini-3-flash-preview';
@@ -168,7 +168,7 @@ export const streamStrategyChat = async function* (history: any[], newMessage: s
           tools: [{ googleSearch: {} }]
       };
   } else if (mode === 'FAST') {
-      model = 'gemini-2.5-flash-lite-latest';
+      model = 'gemini-flash-lite-latest';
   }
 
   const chat = ai.chats.create({
@@ -176,7 +176,7 @@ export const streamStrategyChat = async function* (history: any[], newMessage: s
       history: history,
       config: {
           ...config,
-          systemInstruction: PERSONALITIES.SOVEREIGN_ARCHITECT.instruction,
+          systemInstruction: systemInstruction || PERSONALITIES.SOVEREIGN_ARCHITECT.instruction,
       }
   });
 

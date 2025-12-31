@@ -9,6 +9,7 @@ import DBZScanner from './components/DBZScanner';
 import ConceptStudio from './components/ConceptStudio';
 import DeepArchitect from './components/DeepArchitect';
 import LiveUplink from './components/LiveUplink';
+import AICompanion from './components/modules/AICompanion';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
@@ -19,6 +20,8 @@ const App: React.FC = () => {
     switch (currentView) {
       case View.DASHBOARD: 
         return <ModuleGuard moduleName="Dashboard"><Dashboard /></ModuleGuard>;
+      case View.AI_COMPANION:
+        return <ModuleGuard moduleName="AI Companion"><AICompanion /></ModuleGuard>;
       case View.DBZ_SCANNER: 
         return <ModuleGuard moduleName="DBZ Scanner"><DBZScanner /></ModuleGuard>;
       case View.CONCEPT_STUDIO: 

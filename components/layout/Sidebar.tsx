@@ -9,6 +9,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
   const menu = [
     { id: View.DASHBOARD, label: 'EXECUTIVE', icon: 'M4 6h16M4 12h16m-7 6h7' },
+    { id: View.AI_COMPANION, label: 'AI COMPANION', icon: 'M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z' },
     { id: View.DBZ_SCANNER, label: 'DBZ SCANNER', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },
     { id: View.CONCEPT_STUDIO, label: 'CONCEPT STUDIO', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
     { id: View.DEEP_ARCHITECT, label: 'STRATEGY NODE', icon: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z' },
