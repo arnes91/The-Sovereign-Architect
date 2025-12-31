@@ -1,4 +1,5 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { PERSONALITIES } from '../config/personalities';
 
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -41,11 +42,14 @@ export function decodePCM(base64: string, ctx: AudioContext, sampleRate: number 
 export const generateDBZTaunt = async (powerLevel: number, stats: any) => {
   const ai = getAI();
   
-  const isHighTier = powerLevel > 500000;
-  const persona = isHighTier ? "Whis (Angel Attendant)" : "Frieza (Tyrant)";
+  // Use Centralized Personality Config
+  const tiers = PERSONALITIES.DBZ_SCANNER.tiers;
+  const isHighTier = powerLevel > tiers.HIGH.threshold;
+  
+  const selectedPersona = isHighTier ? tiers.HIGH : tiers.LOW;
   
   const prompt = `
-    Role: You are ${persona} from Dragon Ball Z.
+    Role: ${selectedPersona.instruction}
     Context: A fighter has just been scanned.
     Power Level: ${powerLevel.toLocaleString()}
     Top Emotions: ${JSON.stringify(stats)}
@@ -54,8 +58,6 @@ export const generateDBZTaunt = async (powerLevel: number, stats: any) => {
     Constraints: 
     - Exactly two sentences.
     - Use the emotions to explain the power level.
-    - If Frieza: Be condescending, mocking, call them a monkey or weakling.
-    - If Whis: Be politely impressed but aloof.
   `;
 
   const response = await ai.models.generateContent({
@@ -66,10 +68,13 @@ export const generateDBZTaunt = async (powerLevel: number, stats: any) => {
     }
   });
 
-  return response.text || "Reading failed...";
+  return {
+    text: response.text || "Reading failed...",
+    voice: selectedPersona.voice
+  };
 };
 
-export const generateSpeech = async (text: string, voiceName: 'Kore' | 'Fenrir' = 'Fenrir') => {
+export const generateSpeech = async (text: string, voiceName: string) => {
     const ai = getAI();
     const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
@@ -78,7 +83,7 @@ export const generateSpeech = async (text: string, voiceName: 'Kore' | 'Fenrir' 
             responseModalities: [Modality.AUDIO],
             speechConfig: {
                 voiceConfig: {
-                    prebuiltVoiceConfig: { voiceName },
+                    prebuiltVoiceConfig: { voiceName: voiceName as any },
                 },
             },
         },
@@ -171,7 +176,7 @@ export const streamStrategyChat = async function* (history: any[], newMessage: s
       history: history,
       config: {
           ...config,
-          systemInstruction: "You are The Sovereign Architect. A strategic advisor for the Brzi Ecosystem. You are concise, technical, and speak in a 'Quiet Architect' persona. You value sovereignty, automation, and glitcy aesthetics.",
+          systemInstruction: PERSONALITIES.SOVEREIGN_ARCHITECT.instruction,
       }
   });
 

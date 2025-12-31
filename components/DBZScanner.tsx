@@ -38,18 +38,19 @@ const DBZScanner: React.FC = () => {
       setIsScanning(true);
       const power = calculatePower();
       try {
-          const taunt = await generateDBZTaunt(power, { anger: stats.anger, calm: stats.calmness });
+          // 1. Get Text Taunt & Voice Character
+          const { text: taunt, voice } = await generateDBZTaunt(power, { anger: stats.anger, calm: stats.calmness });
           
           setResult({ power, taunt });
 
-          const audioBase64 = await generateSpeech(taunt, power > 500000 ? 'Kore' : 'Fenrir');
+          // 2. TTS with Persona Voice
+          const audioBase64 = await generateSpeech(taunt, voice);
+          
           if (audioBase64) {
               const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
               audioContextRef.current = ctx;
               
-              // Correctly decode raw PCM (24kHz default for Gemini TTS)
               const buffer = decodePCM(audioBase64, ctx, 24000);
-              
               const source = ctx.createBufferSource();
               source.buffer = buffer;
               source.connect(ctx.destination);
@@ -58,6 +59,7 @@ const DBZScanner: React.FC = () => {
 
       } catch (e) {
           console.error(e);
+          // Safety: Don't let a failed scan crash the UI state permanently
       } finally {
           setIsScanning(false);
       }

@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { View } from './types';
 import Sidebar from './components/layout/Sidebar';
+import { ModuleGuard } from './components/core/ModuleGuard';
+
+// Module Imports
 import Dashboard from './components/Dashboard';
 import DBZScanner from './components/DBZScanner';
 import ConceptStudio from './components/ConceptStudio';
@@ -11,13 +14,21 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
 
   const renderView = () => {
+    // We wrap every component in ModuleGuard. 
+    // If DBZScanner crashes, ConceptStudio is unaffected.
     switch (currentView) {
-      case View.DASHBOARD: return <Dashboard />;
-      case View.DBZ_SCANNER: return <DBZScanner />;
-      case View.CONCEPT_STUDIO: return <ConceptStudio />;
-      case View.DEEP_ARCHITECT: return <DeepArchitect />;
-      case View.LIVE_UPLINK: return <LiveUplink />;
-      default: return <Dashboard />;
+      case View.DASHBOARD: 
+        return <ModuleGuard moduleName="Dashboard"><Dashboard /></ModuleGuard>;
+      case View.DBZ_SCANNER: 
+        return <ModuleGuard moduleName="DBZ Scanner"><DBZScanner /></ModuleGuard>;
+      case View.CONCEPT_STUDIO: 
+        return <ModuleGuard moduleName="Concept Studio"><ConceptStudio /></ModuleGuard>;
+      case View.DEEP_ARCHITECT: 
+        return <ModuleGuard moduleName="Deep Architect"><DeepArchitect /></ModuleGuard>;
+      case View.LIVE_UPLINK: 
+        return <ModuleGuard moduleName="Live Uplink"><LiveUplink /></ModuleGuard>;
+      default: 
+        return <ModuleGuard moduleName="Dashboard"><Dashboard /></ModuleGuard>;
     }
   };
 
@@ -25,9 +36,9 @@ const App: React.FC = () => {
     <div className="flex h-screen w-screen bg-black text-white font-sans overflow-hidden">
       <Sidebar currentView={currentView} setView={setCurrentView} />
       
-      <main className="flex-1 h-full bg-zinc-950 relative">
+      <main className="flex-1 h-full bg-zinc-950 relative flex flex-col">
         {/* Mobile Header */}
-        <div className="md:hidden p-4 border-b border-zinc-800 flex justify-between items-center bg-black">
+        <div className="md:hidden p-4 border-b border-zinc-800 flex justify-between items-center bg-black shrink-0">
              <span className="font-bold text-white">BRZI.AI</span>
              <select 
                 value={currentView} 
@@ -38,10 +49,11 @@ const App: React.FC = () => {
              </select>
         </div>
 
-        {renderView()}
-
-        {/* Global Grain/Overlay Effect */}
-        <div className="pointer-events-none absolute inset-0 opacity-[0.03] bg-[url('https://upload.wikimedia.org/wikipedia/commons/7/76/Noise.png')]"></div>
+        <div className="flex-1 overflow-hidden relative">
+            {renderView()}
+            {/* Global Grain/Overlay Effect */}
+            <div className="pointer-events-none absolute inset-0 opacity-[0.03] bg-[url('https://upload.wikimedia.org/wikipedia/commons/7/76/Noise.png')] z-50"></div>
+        </div>
       </main>
     </div>
   );
