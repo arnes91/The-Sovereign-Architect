@@ -40,6 +40,9 @@ export function decodePCM(base64: string, ctx: AudioContext, sampleRate: number 
 
 // --- DBZ Scanner ---
 
+/**
+ * Generates a taunt based on power level text input (Fallback logic)
+ */
 export const generateDBZTaunt = async (powerLevel: number, stats: any) => {
   const ai = getAI();
   const tiers = PERSONALITIES.DBZ_SCANNER.tiers;
@@ -64,6 +67,35 @@ export const generateDBZTaunt = async (powerLevel: number, stats: any) => {
   };
 };
 
+/**
+ * Analyzes an image to determine power level and stats via Vision capabilities.
+ */
+export const analyzeDBZVision = async (base64Image: string) => {
+    const ai = getAI();
+    const prompt = PROMPT_TEMPLATES.DBZ_VISION_ANALYSIS;
+    
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview', // Using Flash for speed/cost effectiveness on analysis
+            contents: {
+                parts: [
+                    { inlineData: { data: base64Image, mimeType: 'image/jpeg' } },
+                    { text: prompt }
+                ]
+            },
+            config: {
+                responseMimeType: 'application/json'
+            }
+        });
+
+        const json = JSON.parse(response.text || "{}");
+        return json;
+    } catch (e) {
+        console.error("Scouter Malfunction:", e);
+        return null; // Fallback to manual
+    }
+};
+
 export const generateSpeech = async (text: string, voiceName: string) => {
     const ai = getAI();
     const response = await ai.models.generateContent({
@@ -86,7 +118,6 @@ export const generateSpeech = async (text: string, voiceName: string) => {
 
 export const generateImage = async (prompt: string, aspectRatio: string = "1:1") => {
     const ai = getAI();
-    // Using gemini-2.5-flash-image for standard free generation
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
         contents: {
@@ -103,7 +134,7 @@ export const generateImage = async (prompt: string, aspectRatio: string = "1:1")
     if (parts) {
         for (const part of parts) {
             if (part.inlineData) {
-                return part.inlineData.data; // Return raw base64
+                return part.inlineData.data; 
             }
         }
     }
@@ -131,14 +162,39 @@ export const editImage = async (base64Image: string, mimeType: string, prompt: s
     if (parts) {
         for (const part of parts) {
             if (part.inlineData) {
-                return part.inlineData.data; // Return raw base64
+                return part.inlineData.data; 
             }
         }
     }
     return null;
 };
 
-// --- Content Analyzer ---
+// --- Content Analyzer & Analytics Lab ---
+
+export const analyzeDataFile = async (content: string, fileName: string) => {
+    const ai = getAI();
+    const prompt = PROMPT_TEMPLATES.ANALYTICS_INTERPRETER(fileName);
+    
+    // We truncate content if it's massive to fit context window, though Gemini context is huge.
+    // Safe limit: 500k chars for basic text
+    const safeContent = content.length > 500000 ? content.substring(0, 500000) + "\n...[TRUNCATED]" : content;
+
+    const response = await ai.models.generateContent({
+        model: 'gemini-3-pro-preview', // High reasoning for analytics
+        contents: `
+            ${prompt}
+            
+            --- DATA START ---
+            ${safeContent}
+            --- DATA END ---
+        `,
+        config: {
+            thinkingConfig: { thinkingBudget: 16000 }
+        }
+    });
+    
+    return response.text;
+};
 
 export const analyzeImage = async (prompt: string, image: { data: string, mimeType: string }) => {
     const ai = getAI();

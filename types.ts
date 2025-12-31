@@ -5,7 +5,9 @@ export enum View {
   DEEP_ARCHITECT = 'DEEP_ARCHITECT',
   LIVE_UPLINK = 'LIVE_UPLINK',
   AI_COMPANION = 'AI_COMPANION',
-  AI_COMPOSER = 'AI_COMPOSER'
+  AI_COMPOSER = 'AI_COMPOSER',
+  ANALYTICS_LAB = 'ANALYTICS_LAB',
+  KNOWLEDGE_BASE = 'KNOWLEDGE_BASE'
 }
 
 export interface ChatMessage {
@@ -39,7 +41,26 @@ export interface DBZStats {
   contemplation: number;
 }
 
+export interface DBZScanResult {
+  id: string;
+  timestamp: number;
+  power: number;
+  taunt: string;
+  character: string;
+  stats: DBZStats;
+  imageUrl?: string;
+}
+
 export interface GeneratedImage {
   url: string;
   prompt: string;
+}
+
+export interface KnowledgeItem {
+  id: string;
+  type: 'PROMPT' | 'NOTE' | 'STRATEGY' | 'SCAN';
+  title: string;
+  content: string;
+  tags: string[];
+  createdAt: number;
 }

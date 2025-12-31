@@ -11,6 +11,8 @@ import DeepArchitect from './components/DeepArchitect';
 import LiveUplink from './components/LiveUplink';
 import AICompanion from './components/modules/AICompanion';
 import AIComposer from './components/modules/AIComposer';
+import AnalyticsLab from './components/modules/AnalyticsLab';
+import KnowledgeBase from './components/modules/KnowledgeBase';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
@@ -27,6 +29,10 @@ const App: React.FC = () => {
         return <ModuleGuard moduleName="Concept Studio"><ConceptStudio /></ModuleGuard>;
       case View.AI_COMPOSER: 
         return <ModuleGuard moduleName="AI Composer"><AIComposer /></ModuleGuard>;
+      case View.ANALYTICS_LAB: 
+        return <ModuleGuard moduleName="Analytics Lab"><AnalyticsLab /></ModuleGuard>;
+      case View.KNOWLEDGE_BASE: 
+        return <ModuleGuard moduleName="Knowledge Base"><KnowledgeBase /></ModuleGuard>;
       case View.DEEP_ARCHITECT: 
         return <ModuleGuard moduleName="Deep Architect"><DeepArchitect /></ModuleGuard>;
       case View.LIVE_UPLINK: 

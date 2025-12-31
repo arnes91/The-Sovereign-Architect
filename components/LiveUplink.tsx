@@ -8,6 +8,7 @@ const LiveUplink: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [audioLevel, setAudioLevel] = useState(0);
 
   // Audio Context Refs
   const inputAudioContextRef = useRef<AudioContext | null>(null);
@@ -27,6 +28,11 @@ const LiveUplink: React.FC = () => {
       
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
+      // Simple analyzer for visualizer
+      const analyzer = inputAudioContextRef.current.createAnalyser();
+      analyzer.fftSize = 32;
+      const dataArray = new Uint8Array(analyzer.frequencyBinCount);
+      
       const config = {
         model: 'gemini-2.5-flash-native-audio-preview-09-2025',
         callbacks: {
@@ -39,7 +45,14 @@ const LiveUplink: React.FC = () => {
             const source = inputAudioContextRef.current.createMediaStreamSource(stream);
             const scriptProcessor = inputAudioContextRef.current.createScriptProcessor(4096, 1, 1);
             
+            source.connect(analyzer); // Tap for visualizer
+
             scriptProcessor.onaudioprocess = (e) => {
+              // Update visualizer state
+              analyzer.getByteFrequencyData(dataArray);
+              const avg = dataArray.reduce((a, b) => a + b) / dataArray.length;
+              setAudioLevel(avg);
+
               const inputData = e.inputBuffer.getChannelData(0);
               const pcm16 = new Int16Array(inputData.length);
               for (let i = 0; i < inputData.length; i++) {
@@ -95,7 +108,12 @@ const LiveUplink: React.FC = () => {
             speechConfig: {
                 voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } }
             },
-            systemInstruction: "You are The Sovereign Architect. A highly intelligent, slightly glitchy, cyberpunk AI assistant. Keep responses concise and technical."
+            systemInstruction: `
+              You are The Sovereign Architect. 
+              The user has an ACTIVE VISUAL FEED (Camera). 
+              If the user mentions "looking at" or "see", refer to the visual input stream.
+              Keep responses concise, technical, and helpful.
+            `
         }
       };
 
@@ -160,11 +178,28 @@ const LiveUplink: React.FC = () => {
 
       <div className="flex-1 flex flex-col items-center justify-center z-10 gap-8">
         
-        {/* Visualizer Circle */}
-        <div className={`w-48 h-48 rounded-full border-2 flex items-center justify-center transition-all duration-500 ${isConnected ? 'border-cyber-green shadow-[0_0_50px_rgba(0,255,65,0.3)]' : 'border-zinc-800'}`}>
+        {/* Interactive Visualizer */}
+        <div 
+            className={`rounded-full border-2 flex items-center justify-center transition-all duration-75`}
+            style={{
+                width: isConnected ? `${12 + (audioLevel / 2)}rem` : '12rem',
+                height: isConnected ? `${12 + (audioLevel / 2)}rem` : '12rem',
+                borderColor: isConnected ? '#00ff41' : '#27272a',
+                boxShadow: isConnected ? `0 0 ${audioLevel}px rgba(0,255,65,0.5)` : 'none'
+            }}
+        >
            {isConnected ? (
-               <div className="w-40 h-40 bg-cyber-green/10 rounded-full animate-pulse flex items-center justify-center">
-                   <div className="w-20 h-20 bg-cyber-green/20 rounded-full animate-ping"></div>
+               <div className="w-full h-full bg-cyber-green/10 rounded-full flex items-center justify-center relative overflow-hidden">
+                   {/* Simulated Waveform */}
+                   <div className="absolute inset-0 flex items-center justify-center gap-1">
+                        {[1,2,3,4,5].map(i => (
+                             <div 
+                                key={i} 
+                                className="w-2 bg-cyber-green transition-all duration-100" 
+                                style={{ height: `${Math.random() * audioLevel * 1.5}%` }}
+                             ></div>
+                        ))}
+                   </div>
                </div>
            ) : (
                <div className="text-zinc-600 font-mono">DISCONNECTED</div>
@@ -192,9 +227,15 @@ const LiveUplink: React.FC = () => {
             )}
             
             {isConnected && !isCameraActive && (
-                <button onClick={startCamera} className="border border-cyber-green text-cyber-green font-bold px-6 py-3 rounded hover:bg-cyber-green/10 transition-colors uppercase font-mono">
-                    Enable Vision
+                <button onClick={startCamera} className="border border-cyber-green text-cyber-green font-bold px-6 py-3 rounded hover:bg-cyber-green/10 transition-colors uppercase font-mono animate-pulse">
+                    Enable Vision Input
                 </button>
+            )}
+            
+            {isCameraActive && (
+                <div className="text-xs font-mono text-cyber-green mt-2 bg-zinc-900 px-2 py-1 rounded">
+                    CAMERA ACTIVE • STREAMING TO GEMINI
+                </div>
             )}
         </div>
       </div>

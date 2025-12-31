@@ -1,156 +1,253 @@
-import React, { useState, useRef } from 'react';
-import { DBZStats } from '../types';
-import { generateDBZTaunt, generateSpeech, decodePCM } from '../services/geminiService';
+import React, { useState, useRef, useEffect } from 'react';
+import { DBZStats, DBZScanResult } from '../types';
+import { generateDBZTaunt, generateSpeech, decodePCM, analyzeDBZVision } from '../services/geminiService';
+import { StorageService } from '../services/storageService';
+import { PERSONALITIES } from '../config/personalities';
 
 const DBZScanner: React.FC = () => {
-  const [stats, setStats] = useState<DBZStats>({
-    anger: 5, determination: 5, excitement: 5, concentration: 5,
-    fear: 1, sadness: 1, confusion: 1, anxiety: 1,
-    calmness: 5, serenity: 5, contemplation: 5
-  });
-
-  const [result, setResult] = useState<{power: number, taunt: string} | null>(null);
+  const [mode, setMode] = useState<'CAMERA' | 'UPLOAD'>('CAMERA');
+  const [stats, setStats] = useState<DBZStats | null>(null);
+  const [power, setPower] = useState<number>(0);
+  const [taunt, setTaunt] = useState<string>('');
   const [isScanning, setIsScanning] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
-  const updateStat = (key: keyof DBZStats, val: number) => {
-      setStats(prev => ({ ...prev, [key]: val }));
-  };
+  useEffect(() => {
+      if (mode === 'CAMERA') {
+          startCamera();
+      } else {
+          stopCamera();
+      }
+      return () => stopCamera();
+  }, [mode]);
 
-  const calculatePower = () => {
-      const force = (stats.anger * 3) + (stats.determination * 2) + (stats.excitement * 1.5) + stats.concentration;
-      const debuff = (stats.fear * 2) + (stats.sadness * 1.5) + stats.confusion + stats.anxiety;
-      const control = 1 + (stats.calmness * 2) + (stats.serenity * 1.5) + stats.contemplation;
-      
-      let base = (force - debuff) * 1000;
-      let multiplier = control / 10;
-
-      if (stats.anger > 7 && stats.calmness < 3) multiplier *= 0.7; // Uncontrolled Rage
-      if (stats.anger > 7 && stats.calmness > 7) multiplier *= 1.5; // Ultra Instinct
-
-      let total = Math.max(0, base * multiplier);
-      if (multiplier > 3) total = Math.pow(total, 1.1); // God tier boost
-
-      return Math.floor(total);
-  };
-
-  const handleScan = async () => {
-      setIsScanning(true);
-      const power = calculatePower();
+  const startCamera = async () => {
       try {
-          // 1. Get Text Taunt & Voice Character
-          const { text: taunt, voice } = await generateDBZTaunt(power, { anger: stats.anger, calm: stats.calmness });
-          
-          setResult({ power, taunt });
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          if (videoRef.current) videoRef.current.srcObject = stream;
+      } catch (e) {
+          console.error("Camera access denied", e);
+      }
+  };
 
-          // 2. TTS with Persona Voice
-          const audioBase64 = await generateSpeech(taunt, voice);
+  const stopCamera = () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+          const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+          tracks.forEach(t => t.stop());
+      }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+          const reader = new FileReader();
+          reader.onloadend = () => setCapturedImage(reader.result as string);
+          reader.readAsDataURL(file);
+      }
+  };
+
+  const captureFrame = (): string | null => {
+      if (!videoRef.current || !canvasRef.current) return null;
+      const context = canvasRef.current.getContext('2d');
+      canvasRef.current.width = videoRef.current.videoWidth;
+      canvasRef.current.height = videoRef.current.videoHeight;
+      context?.drawImage(videoRef.current, 0, 0);
+      return canvasRef.current.toDataURL('image/jpeg', 0.8);
+  };
+
+  const executeScan = async () => {
+      setIsScanning(true);
+      setTaunt(''); // Clear previous
+      
+      try {
+          // 1. Get Image
+          let base64Image = capturedImage;
+          if (mode === 'CAMERA') {
+              base64Image = captureFrame();
+              setCapturedImage(base64Image); // Freeze frame
+          }
+
+          if (!base64Image) throw new Error("No visual input detected.");
+
+          // 2. Analyze via Gemini Vision
+          const visionData = await analyzeDBZVision(base64Image.split(',')[1]);
           
-          if (audioBase64) {
-              const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-              audioContextRef.current = ctx;
-              
-              const buffer = decodePCM(audioBase64, ctx, 24000);
-              const source = ctx.createBufferSource();
-              source.buffer = buffer;
-              source.connect(ctx.destination);
-              source.start(0);
+          if (visionData) {
+              setPower(visionData.power);
+              setStats(visionData.stats);
+
+              // 3. Generate Taunt based on Vision Data
+              const { text, voice } = await generateDBZTaunt(visionData.power, visionData.stats);
+              setTaunt(text);
+
+              // 4. Save to History
+              StorageService.saveScan({
+                  id: Date.now().toString(),
+                  timestamp: Date.now(),
+                  power: visionData.power,
+                  taunt: text,
+                  stats: visionData.stats,
+                  character: voice,
+                  imageUrl: base64Image
+              });
+
+              // 5. TTS Output
+              const audioBase64 = await generateSpeech(text, voice);
+              if (audioBase64) {
+                  const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                  audioContextRef.current = ctx;
+                  const buffer = decodePCM(audioBase64, ctx, 24000);
+                  const source = ctx.createBufferSource();
+                  source.buffer = buffer;
+                  source.connect(ctx.destination);
+                  source.start(0);
+              }
           }
 
       } catch (e) {
-          console.error(e);
+          console.error("Scan Failed", e);
+          setTaunt("ERROR: Scouter Malfunction. Target ambiguous.");
       } finally {
           setIsScanning(false);
       }
   };
 
-  // Visual calculation for bar width (max power ~10M for visualization purposes)
-  const powerPercentage = result ? Math.min(100, (result.power / 2000000) * 100) : 0;
+  const resetScanner = () => {
+      setCapturedImage(null);
+      setStats(null);
+      setPower(0);
+      setTaunt('');
+      if (mode === 'CAMERA') startCamera();
+  };
+
+  // Visual bar calc
+  const powerPercentage = Math.min(100, (power / 2000000) * 100);
 
   return (
     <div className="h-full flex flex-col md:flex-row gap-6 p-6">
-       <div className="flex-1 bg-zinc-900/30 p-6 border border-zinc-800 rounded-xl overflow-y-auto">
-           <h3 className="text-xl font-bold font-sans text-cyber-green mb-6 border-b border-zinc-800 pb-2">BIOMETRIC INPUTS</h3>
-           
-           <div className="space-y-6">
-               <div className="space-y-3">
-                   <h4 className="text-xs font-mono text-red-400">FORCE PARAMETERS</h4>
-                   {['anger', 'determination', 'excitement', 'concentration'].map(s => (
-                       <div key={s} className="flex items-center justify-between">
-                           <label className="text-xs uppercase w-24 font-mono text-zinc-400">{s}</label>
-                           <input 
-                            type="range" min="0" max="10" value={stats[s as keyof DBZStats]} 
-                            onChange={(e) => updateStat(s as keyof DBZStats, Number(e.target.value))}
-                            className="flex-1 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-red-500"
-                           />
-                           <span className="w-8 text-right font-mono text-sm">{stats[s as keyof DBZStats]}</span>
-                       </div>
-                   ))}
-               </div>
-
-               <div className="space-y-3">
-                   <h4 className="text-xs font-mono text-blue-400">CONTROL PARAMETERS</h4>
-                   {['calmness', 'serenity', 'contemplation'].map(s => (
-                       <div key={s} className="flex items-center justify-between">
-                           <label className="text-xs uppercase w-24 font-mono text-zinc-400">{s}</label>
-                           <input 
-                            type="range" min="0" max="10" value={stats[s as keyof DBZStats]} 
-                            onChange={(e) => updateStat(s as keyof DBZStats, Number(e.target.value))}
-                            className="flex-1 h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                           />
-                           <span className="w-8 text-right font-mono text-sm">{stats[s as keyof DBZStats]}</span>
-                       </div>
-                   ))}
-               </div>
-           </div>
-
-           <button 
-                onClick={handleScan}
-                disabled={isScanning}
-                className="w-full mt-8 py-4 bg-red-600 hover:bg-red-500 text-white font-bold tracking-widest uppercase font-mono transition-all clip-path-slant"
-                style={{ clipPath: 'polygon(5% 0, 100% 0, 100% 90%, 95% 100%, 0 100%, 0 10%)' }}
-           >
-               {isScanning ? 'ANALYZING...' : 'INITIATE SCAN'}
-           </button>
-       </div>
-
-       <div className="flex-1 flex flex-col items-center justify-center relative bg-black border border-zinc-800 rounded-xl overflow-hidden min-h-[400px]">
-            {/* Scouter Overlay UI */}
-            <div className="absolute inset-0 pointer-events-none opacity-50 z-10">
-                <svg className="w-full h-full p-4" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    <circle cx="50" cy="50" r="30" stroke="#00ff41" strokeWidth="0.5" fill="none" className="animate-spin-slow" />
-                    <line x1="0" y1="50" x2="100" y2="50" stroke="#00ff41" strokeWidth="0.2" />
-                    <line x1="50" y1="0" x2="50" y2="100" stroke="#00ff41" strokeWidth="0.2" />
-                </svg>
+       
+       {/* Left Panel: Viewport */}
+       <div className="flex-1 flex flex-col bg-black border border-zinc-800 rounded-xl overflow-hidden relative min-h-[400px]">
+            {/* HUD Overlay */}
+            <div className="absolute inset-0 z-20 pointer-events-none p-4 flex flex-col justify-between">
+                <div className="flex justify-between items-start">
+                    <div className="text-cyber-green font-mono text-xs animate-pulse">
+                        SYS.V.8.0 // {isScanning ? 'ANALYZING' : 'READY'}
+                    </div>
+                    <svg className="w-12 h-12 text-cyber-green opacity-50" viewBox="0 0 100 100">
+                        <path d="M10 10 L30 10 M10 10 L10 30" stroke="currentColor" fill="none" strokeWidth="2"/>
+                        <path d="M90 10 L70 10 M90 10 L90 30" stroke="currentColor" fill="none" strokeWidth="2"/>
+                        <path d="M10 90 L30 90 M10 90 L10 70" stroke="currentColor" fill="none" strokeWidth="2"/>
+                        <path d="M90 90 L70 90 M90 90 L90 70" stroke="currentColor" fill="none" strokeWidth="2"/>
+                    </svg>
+                </div>
+                
+                {mode === 'CAMERA' && !capturedImage && (
+                    <div className="self-center border border-cyber-green/30 w-48 h-48 rounded-full flex items-center justify-center">
+                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                    </div>
+                )}
             </div>
 
-            {result ? (
-                <div className="z-20 text-center p-8 w-full flex flex-col items-center">
-                    <div className="text-sm font-mono text-cyber-green mb-2 animate-pulse">POWER LEVEL CONFIRMED</div>
-                    <div className="text-6xl md:text-8xl font-black font-sans text-white tracking-tighter mb-6 tabular-nums relative">
-                        {result.power.toLocaleString()}
-                        <div className="text-xs absolute -top-4 -right-4 bg-red-600 px-2 py-0.5 rounded text-white font-mono">
-                            {result.power > 1000000 ? 'SSJ' : result.power > 9000 ? 'OVER 9000' : 'BASE'}
+            {/* Media Area */}
+            <div className="flex-1 bg-zinc-900 relative flex items-center justify-center overflow-hidden">
+                {capturedImage ? (
+                    <img src={capturedImage} className="w-full h-full object-cover opacity-60" />
+                ) : mode === 'CAMERA' ? (
+                    <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                ) : (
+                    <div className="text-zinc-600 font-mono flex flex-col items-center">
+                        <span className="text-4xl mb-2">⇩</span>
+                        <span>UPLOAD TARGET IMAGE</span>
+                    </div>
+                )}
+                <canvas ref={canvasRef} className="hidden" />
+            </div>
+
+            {/* Controls */}
+            <div className="bg-zinc-900 p-4 border-t border-zinc-800 flex gap-4 z-30">
+                <button 
+                    onClick={() => { setMode(mode === 'CAMERA' ? 'UPLOAD' : 'CAMERA'); resetScanner(); }}
+                    className="px-4 py-2 bg-zinc-800 text-zinc-300 font-mono text-xs rounded border border-zinc-700 hover:bg-zinc-700"
+                >
+                    SWITCH TO {mode === 'CAMERA' ? 'UPLOAD' : 'CAMERA'}
+                </button>
+                
+                {mode === 'UPLOAD' && !capturedImage && (
+                    <input type="file" onChange={handleFileUpload} accept="image/*" className="text-xs text-zinc-400 file:bg-zinc-800 file:text-white file:border-0 file:px-4 file:py-2 file:rounded" />
+                )}
+
+                {!capturedImage ? (
+                     <button 
+                        onClick={executeScan}
+                        disabled={isScanning || (mode === 'UPLOAD' && !capturedImage)}
+                        className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold font-mono tracking-widest uppercase rounded disabled:opacity-50"
+                     >
+                        {isScanning ? 'SCANNING...' : 'SCAN TARGET'}
+                     </button>
+                ) : (
+                    <button 
+                        onClick={resetScanner}
+                        className="flex-1 bg-zinc-700 hover:bg-zinc-600 text-white font-bold font-mono tracking-widest uppercase rounded"
+                    >
+                        RESET
+                    </button>
+                )}
+            </div>
+       </div>
+
+       {/* Right Panel: Results */}
+       <div className="flex-1 bg-zinc-900/30 p-6 border border-zinc-800 rounded-xl overflow-y-auto">
+           {power > 0 ? (
+               <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <div className="mb-8 text-center">
+                        <h3 className="text-xs font-mono text-zinc-500 mb-2">ESTIMATED POWER LEVEL</h3>
+                        <div className="text-6xl md:text-7xl font-black text-white tracking-tighter tabular-nums drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+                            {power.toLocaleString()}
+                        </div>
+                        {/* Power Bar */}
+                        <div className="w-full h-3 bg-zinc-800 rounded-full mt-4 overflow-hidden relative">
+                            <div 
+                                className="h-full bg-gradient-to-r from-green-500 via-yellow-400 to-red-600"
+                                style={{ width: `${powerPercentage}%` }}
+                            ></div>
                         </div>
                     </div>
-                    
-                    {/* Power Visual Bar */}
-                    <div className="w-64 h-2 bg-zinc-800 rounded-full mb-8 overflow-hidden relative">
-                        <div 
-                            className="h-full bg-gradient-to-r from-green-500 via-yellow-400 to-red-600 transition-all duration-1000 ease-out"
-                            style={{ width: `${powerPercentage}%` }}
-                        ></div>
-                        <div className="absolute top-0 right-0 h-full w-1 bg-white animate-pulse"></div>
+
+                    <div className="bg-black border-l-4 border-red-500 p-6 mb-8 rounded-r-lg">
+                        <div className="flex justify-between items-center mb-2">
+                             <span className="text-xs font-mono text-red-500">AUDIO LOG</span>
+                             <span className="text-xs font-mono text-zinc-600">VOICE: {power > 500000 ? 'WHIS' : 'FRIEZA'}</span>
+                        </div>
+                        <p className="font-serif italic text-xl text-zinc-200 leading-relaxed">"{taunt}"</p>
                     </div>
 
-                    <div className="bg-zinc-900/80 p-6 border-l-4 border-red-500 text-left max-w-md mx-auto relative">
-                        <p className="text-xs text-zinc-500 font-mono mb-1">PERSONA COMMENTARY</p>
-                        <p className="font-sans text-lg italic text-zinc-200">"{result.taunt}"</p>
+                    <div className="grid grid-cols-2 gap-4">
+                         {stats && Object.entries(stats).slice(0, 6).map(([key, val]) => (
+                             <div key={key} className="bg-zinc-900/50 p-3 rounded border border-zinc-800/50">
+                                 <div className="flex justify-between mb-1">
+                                     <span className="text-xs uppercase font-mono text-zinc-400">{key}</span>
+                                     <span className="text-xs font-bold text-cyber-green">{val}/10</span>
+                                 </div>
+                                 <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                                     <div className="h-full bg-cyber-green" style={{ width: `${val * 10}%` }}></div>
+                                 </div>
+                             </div>
+                         ))}
                     </div>
-                </div>
-            ) : (
-                <div className="text-zinc-700 font-mono animate-pulse">SYSTEM STANDBY</div>
-            )}
+               </div>
+           ) : (
+               <div className="h-full flex flex-col items-center justify-center text-zinc-600 opacity-50">
+                   <div className="w-16 h-16 border-2 border-dashed border-zinc-700 rounded-full flex items-center justify-center mb-4">
+                       <span className="text-2xl">?</span>
+                   </div>
+                   <p className="font-mono text-sm">Awaiting Target Acquisition</p>
+               </div>
+           )}
        </div>
     </div>
   );
