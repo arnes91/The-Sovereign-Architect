@@ -7,7 +7,8 @@ export enum View {
   AI_COMPANION = 'AI_COMPANION',
   AI_COMPOSER = 'AI_COMPOSER',
   ANALYTICS_LAB = 'ANALYTICS_LAB',
-  KNOWLEDGE_BASE = 'KNOWLEDGE_BASE'
+  KNOWLEDGE_BASE = 'KNOWLEDGE_BASE',
+  LEADERBOARD = 'LEADERBOARD'
 }
 
 export interface ChatMessage {
@@ -27,6 +28,13 @@ export interface GroundingMetadata {
   }[];
 }
 
+// --- EMOTION & SCANNER TYPES ---
+
+export interface HumeEmotion {
+  name: string;
+  score: number;
+}
+
 export interface DBZStats {
   anger: number;
   determination: number;
@@ -37,8 +45,7 @@ export interface DBZStats {
   confusion: number;
   anxiety: number;
   calmness: number;
-  serenity: number;
-  contemplation: number;
+  pride: number; // Added for Vegeta-style logic
 }
 
 export interface DBZScanResult {
@@ -46,9 +53,24 @@ export interface DBZScanResult {
   timestamp: number;
   power: number;
   taunt: string;
-  character: string;
+  character: string; // The persona responding
   stats: DBZStats;
   imageUrl?: string;
+  shareUrl?: string;
+}
+
+// --- GAMIFICATION TYPES ---
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  level: number;
+  xp: number;
+  energy: number; // Free scans remaining
+  maxEnergy: number;
+  isPremium: boolean;
+  unlockedPersonas: string[];
+  joinedAt: number;
 }
 
 export interface GeneratedImage {
