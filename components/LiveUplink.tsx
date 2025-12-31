@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { arrayBufferToBase64, decodePCM } from '../services/geminiService';
 
@@ -6,17 +6,27 @@ const LiveUplink: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [log, setLog] = useState<string[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null); // For video frame capture
+  const visualizerCanvasRef = useRef<HTMLCanvasElement>(null); // For audio visualization
   const [isCameraActive, setIsCameraActive] = useState(false);
-  const [audioLevel, setAudioLevel] = useState(0);
-
+  
   // Audio Context Refs
   const inputAudioContextRef = useRef<AudioContext | null>(null);
   const outputAudioContextRef = useRef<AudioContext | null>(null);
   const nextStartTimeRef = useRef<number>(0);
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
+  const rafIdRef = useRef<number | null>(null);
 
   const addLog = (msg: string) => setLog(prev => [...prev.slice(-4), msg]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+      if (inputAudioContextRef.current) inputAudioContextRef.current.close();
+      if (outputAudioContextRef.current) outputAudioContextRef.current.close();
+    };
+  }, []);
 
   const connect = async () => {
     try {
@@ -28,9 +38,10 @@ const LiveUplink: React.FC = () => {
       
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
-      // Simple analyzer for visualizer
+      // Analyzer setup for Visualizer
       const analyzer = inputAudioContextRef.current.createAnalyser();
-      analyzer.fftSize = 32;
+      analyzer.fftSize = 512; // Higher resolution for better visuals
+      analyzer.smoothingTimeConstant = 0.8;
       const dataArray = new Uint8Array(analyzer.frequencyBinCount);
       
       const config = {
@@ -47,12 +58,64 @@ const LiveUplink: React.FC = () => {
             
             source.connect(analyzer); // Tap for visualizer
 
-            scriptProcessor.onaudioprocess = (e) => {
-              // Update visualizer state
-              analyzer.getByteFrequencyData(dataArray);
-              const avg = dataArray.reduce((a, b) => a + b) / dataArray.length;
-              setAudioLevel(avg);
+            // Start Visualizer Loop
+            const drawVisualizer = () => {
+                if (!visualizerCanvasRef.current) return;
+                const canvas = visualizerCanvasRef.current;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return;
 
+                rafIdRef.current = requestAnimationFrame(drawVisualizer);
+
+                analyzer.getByteFrequencyData(dataArray);
+                
+                // Clear Canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                const radius = 50;
+                
+                // 1. Draw Pulsating Core
+                const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius - 10 + (average / 5), 0, 2 * Math.PI);
+                ctx.fillStyle = `rgba(0, 255, 65, ${0.1 + (average / 500)})`;
+                ctx.fill();
+                
+                // 2. Draw Radial Frequency Bars
+                const bars = 60; // Number of bars to draw
+                const step = Math.floor(dataArray.length / bars);
+                
+                ctx.beginPath();
+                for (let i = 0; i < bars; i++) {
+                    const value = dataArray[i * step];
+                    const barHeight = (value / 255) * 60; // Max extension
+                    const angle = (i / bars) * 2 * Math.PI;
+                    
+                    // Start point (on circle edge)
+                    const x1 = centerX + Math.cos(angle) * radius;
+                    const y1 = centerY + Math.sin(angle) * radius;
+                    
+                    // End point (extending outwards)
+                    const x2 = centerX + Math.cos(angle) * (radius + barHeight);
+                    const y2 = centerY + Math.sin(angle) * (radius + barHeight);
+                    
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                }
+                
+                ctx.lineCap = 'round';
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#00ff41';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#00ff41';
+                ctx.stroke();
+                ctx.shadowBlur = 0; // Reset
+            };
+            drawVisualizer();
+
+            scriptProcessor.onaudioprocess = (e) => {
               const inputData = e.inputBuffer.getChannelData(0);
               const pcm16 = new Int16Array(inputData.length);
               for (let i = 0; i < inputData.length; i++) {
@@ -98,6 +161,7 @@ const LiveUplink: React.FC = () => {
           onclose: () => {
             addLog("Connection Closed.");
             setIsConnected(false);
+            if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
           },
           onerror: (e: any) => {
             addLog(`Error: ${e.message || 'Unknown'}`);
@@ -178,32 +242,25 @@ const LiveUplink: React.FC = () => {
 
       <div className="flex-1 flex flex-col items-center justify-center z-10 gap-8">
         
-        {/* Interactive Visualizer */}
-        <div 
-            className={`rounded-full border-2 flex items-center justify-center transition-all duration-75`}
-            style={{
-                width: isConnected ? `${12 + (audioLevel / 2)}rem` : '12rem',
-                height: isConnected ? `${12 + (audioLevel / 2)}rem` : '12rem',
-                borderColor: isConnected ? '#00ff41' : '#27272a',
-                boxShadow: isConnected ? `0 0 ${audioLevel}px rgba(0,255,65,0.5)` : 'none'
-            }}
-        >
-           {isConnected ? (
-               <div className="w-full h-full bg-cyber-green/10 rounded-full flex items-center justify-center relative overflow-hidden">
-                   {/* Simulated Waveform */}
-                   <div className="absolute inset-0 flex items-center justify-center gap-1">
-                        {[1,2,3,4,5].map(i => (
-                             <div 
-                                key={i} 
-                                className="w-2 bg-cyber-green transition-all duration-100" 
-                                style={{ height: `${Math.random() * audioLevel * 1.5}%` }}
-                             ></div>
-                        ))}
-                   </div>
-               </div>
-           ) : (
-               <div className="text-zinc-600 font-mono">DISCONNECTED</div>
-           )}
+        {/* Interactive Visualizer Canvas */}
+        <div className={`relative flex items-center justify-center transition-all duration-500 ${isConnected ? 'opacity-100 scale-100' : 'opacity-50 scale-95'}`}>
+            <canvas 
+                ref={visualizerCanvasRef} 
+                width={300} 
+                height={300} 
+                className="rounded-full bg-black/50 border border-zinc-800"
+                style={{ 
+                    width: '300px', 
+                    height: '300px',
+                    boxShadow: isConnected ? '0 0 30px rgba(0,255,65,0.1)' : 'none'
+                }}
+            />
+            
+            {!isConnected && (
+                <div className="absolute text-zinc-600 font-mono text-sm">
+                    DISCONNECTED
+                </div>
+            )}
         </div>
 
         {/* Video Preview (Hidden but active) */}
