@@ -133,6 +133,40 @@ const DBZScanner: React.FC = () => {
       }
   };
 
+  const handleShare = async () => {
+      if (!currentStats) return;
+
+      // Construct compact payload for URL (excluding heavy image data)
+      const shareData = {
+          p: currentPower,
+          t: currentTaunt,
+          c: currentPersona,
+          s: currentStats,
+          ts: Date.now()
+      };
+
+      try {
+          // Create safe Base64 string from JSON
+          const jsonStr = JSON.stringify(shareData);
+          const base64 = btoa(unescape(encodeURIComponent(jsonStr)));
+          const shareUrl = `${window.location.origin}?scan=${base64}`;
+
+          if (navigator.share) {
+              await navigator.share({
+                  title: 'Sovereign Scouter Analysis',
+                  text: `My Power Level is ${currentPower.toLocaleString()}! Identified as: ${currentPersona}. ${currentTaunt}`,
+                  url: shareUrl
+              });
+          } else {
+              await navigator.clipboard.writeText(shareUrl);
+              alert("UPLINK SECURED:\n\nShareable Data-Link copied to clipboard.");
+          }
+      } catch (e) {
+          console.error("Share failed", e);
+          alert("Uplink Connection Failed.");
+      }
+  };
+
   // --- SUB-COMPONENTS ---
 
   const ProfileView = () => (
@@ -211,7 +245,7 @@ const DBZScanner: React.FC = () => {
                       {currentPower.toLocaleString()}
                   </div>
                   <div className="mt-2 px-3 py-1 bg-red-600 text-white text-xs font-bold rounded uppercase">
-                      {HumeService.getDominantEmotion(currentStats!)} DETECTED
+                      {currentStats ? HumeService.getDominantEmotion(currentStats) : "UNKNOWN"} DETECTED
                   </div>
               </div>
 
@@ -223,8 +257,12 @@ const DBZScanner: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-3 mb-6">
-                  <button className="bg-blue-600 text-white py-3 rounded font-bold text-sm shadow-lg">SHARE RESULT</button>
-                  <button onClick={() => setViewState('HUD')} className="bg-zinc-800 text-white py-3 rounded font-bold text-sm border border-zinc-700">SCAN AGAIN</button>
+                  <button onClick={handleShare} className="bg-blue-600 hover:bg-blue-500 text-white py-3 rounded font-bold text-sm shadow-lg transition-colors">
+                      SHARE RESULT
+                  </button>
+                  <button onClick={() => setViewState('HUD')} className="bg-zinc-800 hover:bg-zinc-700 text-white py-3 rounded font-bold text-sm border border-zinc-700 transition-colors">
+                      SCAN AGAIN
+                  </button>
               </div>
           </div>
       </div>
@@ -244,7 +282,7 @@ const DBZScanner: React.FC = () => {
               <div className="grid grid-cols-1 gap-4">
                   {history.map(h => (
                       <div key={h.id} className="flex gap-4 bg-zinc-900 p-3 rounded border border-zinc-800">
-                          <img src={h.imageUrl} className="w-16 h-16 object-cover rounded bg-zinc-800" />
+                          {h.imageUrl && <img src={h.imageUrl} className="w-16 h-16 object-cover rounded bg-zinc-800" />}
                           <div>
                               <div className="text-xl font-black text-white">{h.power.toLocaleString()}</div>
                               <div className="text-xs text-zinc-500">{new Date(h.timestamp).toLocaleDateString()}</div>
