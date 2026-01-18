@@ -1,3 +1,4 @@
+
 /**
  * Storage Service
  * Handles local persistence for the Sovereign Architect.
@@ -5,11 +6,12 @@
  * Data is stored in localStorage to ensure privacy and sovereignty.
  */
 
-import { KnowledgeItem, DBZScanResult } from "../types";
+import { KnowledgeItem, DBZScanResult, GeneratedImage } from "../types";
 
 const KEYS = {
     KNOWLEDGE_BASE: 'brzi_knowledge_base',
     DBZ_HISTORY: 'brzi_dbz_history',
+    IMAGE_HISTORY: 'brzi_image_history',
     SETTINGS: 'brzi_settings'
 };
 
@@ -42,6 +44,23 @@ export const StorageService = {
 
     getScans: (): DBZScanResult[] => {
         const data = localStorage.getItem(KEYS.DBZ_HISTORY);
+        return data ? JSON.parse(data) : [];
+    },
+
+    // --- Image History ---
+    saveGeneratedImage: (item: GeneratedImage) => {
+        const current = StorageService.getGeneratedImages();
+        // Keep last 10 images to avoid localStorage quotas (Base64 is heavy)
+        const updated = [item, ...current].slice(0, 10);
+        try {
+            localStorage.setItem(KEYS.IMAGE_HISTORY, JSON.stringify(updated));
+        } catch (e) {
+            console.error("Storage Quota Exceeded. Could not save image history.");
+        }
+    },
+
+    getGeneratedImages: (): GeneratedImage[] => {
+        const data = localStorage.getItem(KEYS.IMAGE_HISTORY);
         return data ? JSON.parse(data) : [];
     },
 

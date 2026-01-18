@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { StorageService } from '../../services/storageService';
 import { KnowledgeItem } from '../../types';
@@ -48,6 +49,13 @@ const KnowledgeBase: React.FC = () => {
       setTimeout(() => setCopyFeedback(null), 2000);
   };
 
+  const handleUseAsTemplate = (item: KnowledgeItem) => {
+      setTitle(`Copy of ${item.title}`);
+      setContent(item.content);
+      setType(item.type);
+      setView('CREATE');
+  };
+
   return (
     <div className="h-full flex flex-col p-6 relative">
       
@@ -64,7 +72,16 @@ const KnowledgeBase: React.FC = () => {
             <p className="text-zinc-500 font-mono text-sm">Sovereign Data Storage (Local)</p>
         </div>
         <button 
-            onClick={() => setView(view === 'LIST' ? 'CREATE' : 'LIST')}
+            onClick={() => {
+                if(view === 'LIST') {
+                    setTitle('');
+                    setContent('');
+                    setType('PROMPT');
+                    setView('CREATE');
+                } else {
+                    setView('LIST');
+                }
+            }}
             className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2 rounded font-mono text-xs"
         >
             {view === 'LIST' ? '+ NEW ENTRY' : 'CANCEL'}
@@ -143,12 +160,20 @@ const KnowledgeBase: React.FC = () => {
                          <p className="text-sm text-zinc-400 line-clamp-4 font-mono whitespace-pre-wrap flex-1 mb-4">{item.content}</p>
                          
                          {item.type === 'PROMPT' && (
-                             <button 
-                                onClick={() => handleCopy(item.content)}
-                                className="w-full bg-zinc-800 hover:bg-zinc-700 text-xs text-white py-2 rounded font-mono border border-zinc-700"
-                             >
-                                 ACTIVATE (COPY)
-                             </button>
+                             <div className="flex gap-2">
+                                <button 
+                                    onClick={() => handleCopy(item.content)}
+                                    className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-[10px] text-white py-2 rounded font-mono border border-zinc-700"
+                                >
+                                    COPY
+                                </button>
+                                <button 
+                                    onClick={() => handleUseAsTemplate(item)}
+                                    className="flex-1 bg-zinc-800 hover:bg-cyber-green/20 hover:text-cyber-green hover:border-cyber-green text-[10px] text-white py-2 rounded font-mono border border-zinc-700 transition-colors"
+                                >
+                                    USE
+                                </button>
+                             </div>
                          )}
                          <div className="mt-2 text-[10px] text-zinc-600 text-right">
                              {new Date(item.createdAt).toLocaleDateString()}

@@ -227,7 +227,7 @@ export const analyzeVideo = async (prompt: string, video: { data: string, mimeTy
 export const transcribeAudio = async (prompt: string, audio: { data: string, mimeType: string }) => {
     const ai = getAI();
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         contents: {
             parts: [
                 { inlineData: { data: audio.data, mimeType: audio.mimeType } },

@@ -1,10 +1,11 @@
+
 export enum View {
   DASHBOARD = 'DASHBOARD',
   DBZ_SCANNER = 'DBZ_SCANNER',
   CONCEPT_STUDIO = 'CONCEPT_STUDIO',
   DEEP_ARCHITECT = 'DEEP_ARCHITECT',
   LIVE_UPLINK = 'LIVE_UPLINK',
-  AI_COMPANION = 'AI_COMPANION',
+  AI_COMPANION = 'AI_COMPOSER', // Mapping alias for consistency if needed, usually just AI_COMPANION
   AI_COMPOSER = 'AI_COMPOSER',
   ANALYTICS_LAB = 'ANALYTICS_LAB',
   KNOWLEDGE_BASE = 'KNOWLEDGE_BASE',
@@ -74,8 +75,11 @@ export interface UserProfile {
 }
 
 export interface GeneratedImage {
+  id: string;
   url: string;
   prompt: string;
+  aspectRatio: string;
+  timestamp: number;
 }
 
 export interface KnowledgeItem {

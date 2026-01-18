@@ -45,7 +45,7 @@ const LiveUplink: React.FC = () => {
       const dataArray = new Uint8Array(analyzer.frequencyBinCount);
       
       const config = {
-        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         callbacks: {
           onopen: () => {
             addLog("Connection Established.");
