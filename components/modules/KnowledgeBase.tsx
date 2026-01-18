@@ -4,7 +4,8 @@ import { StorageService } from '../../services/storageService';
 import { KnowledgeItem } from '../../types';
 
 const KnowledgeBase: React.FC = () => {
-  const [items, setItems] = useState<KnowledgeItem[]>([]);
+  // Initialize from storage synchronously to prevent empty flash/loss
+  const [items, setItems] = useState<KnowledgeItem[]>(() => StorageService.getKnowledgeItems());
   const [view, setView] = useState<'LIST' | 'CREATE'>('LIST');
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   
@@ -13,13 +14,10 @@ const KnowledgeBase: React.FC = () => {
   const [content, setContent] = useState('');
   const [type, setType] = useState<KnowledgeItem['type']>('PROMPT');
 
+  // Reload when component mounts just in case
   useEffect(() => {
-    loadItems();
-  }, []);
-
-  const loadItems = () => {
     setItems(StorageService.getKnowledgeItems());
-  };
+  }, []);
 
   const handleSave = () => {
     if (!title || !content) return;
@@ -32,7 +30,7 @@ const KnowledgeBase: React.FC = () => {
       createdAt: Date.now()
     };
     StorageService.saveKnowledgeItem(newItem);
-    loadItems();
+    setItems(StorageService.getKnowledgeItems()); // Update local state immediately
     setView('LIST');
     setTitle('');
     setContent('');
@@ -40,7 +38,7 @@ const KnowledgeBase: React.FC = () => {
 
   const handleDelete = (id: string) => {
       StorageService.deleteKnowledgeItem(id);
-      loadItems();
+      setItems(StorageService.getKnowledgeItems());
   };
 
   const handleCopy = (content: string) => {

@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { PERSONALITIES } from '../config/personalities';
 import { PROMPT_TEMPLATES } from '../config/promptTemplates';
@@ -38,45 +39,65 @@ export function decodePCM(base64: string, ctx: AudioContext, sampleRate: number 
   return buffer;
 }
 
+/**
+ * Wraps API calls to handle Geo-Blocking (403) and other API errors gracefully.
+ */
+async function safeApiCall<T>(apiCall: () => Promise<T>): Promise<T> {
+    try {
+        return await apiCall();
+    } catch (error: any) {
+        console.error("Gemini API Error:", error);
+        
+        const errorMsg = error.toString().toLowerCase();
+        const responseMsg = error.response ? JSON.stringify(error.response).toLowerCase() : "";
+        
+        if (errorMsg.includes("403") || errorMsg.includes("region not supported") || responseMsg.includes("region not supported")) {
+            throw new Error("REGION_LOCKED: The requested AI model is currently unavailable in your geographic location.");
+        }
+        
+        if (errorMsg.includes("503") || errorMsg.includes("overloaded")) {
+            throw new Error("SYSTEM_OVERLOAD: The Neural Network is at capacity. Retrying...");
+        }
+
+        throw error;
+    }
+}
+
 // --- DBZ Scanner ---
 
-/**
- * Generates a taunt based on power level text input (Fallback logic)
- */
 export const generateDBZTaunt = async (powerLevel: number, stats: any) => {
-  const ai = getAI();
-  const tiers = PERSONALITIES.DBZ_SCANNER.tiers;
-  const isHighTier = powerLevel > tiers.HIGH.threshold;
-  const selectedPersona = isHighTier ? tiers.HIGH : tiers.LOW;
-  
-  const prompt = PROMPT_TEMPLATES.DBZ_TAUNT(
-    selectedPersona.instruction,
-    powerLevel.toLocaleString(),
-    JSON.stringify(stats)
-  );
+  return safeApiCall(async () => {
+      const ai = getAI();
+      const tiers = PERSONALITIES.DBZ_SCANNER.tiers;
+      const isHighTier = powerLevel > tiers.HIGH.threshold;
+      const selectedPersona = isHighTier ? tiers.HIGH : tiers.LOW;
+      
+      const prompt = PROMPT_TEMPLATES.DBZ_TAUNT(
+        selectedPersona.instruction,
+        powerLevel.toLocaleString(),
+        JSON.stringify(stats)
+      );
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: prompt,
-    config: { temperature: 0.9 }
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: prompt,
+        config: { temperature: 0.9 }
+      });
+
+      return {
+        text: response.text || "Reading failed...",
+        voice: selectedPersona.voice
+      };
   });
-
-  return {
-    text: response.text || "Reading failed...",
-    voice: selectedPersona.voice
-  };
 };
 
-/**
- * Analyzes an image to determine power level and stats via Vision capabilities.
- */
 export const analyzeDBZVision = async (base64Image: string) => {
-    const ai = getAI();
-    const prompt = PROMPT_TEMPLATES.DBZ_VISION_ANALYSIS;
-    
-    try {
+    return safeApiCall(async () => {
+        const ai = getAI();
+        const prompt = PROMPT_TEMPLATES.DBZ_VISION_ANALYSIS;
+        
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview', // Using Flash for speed/cost effectiveness on analysis
+            model: 'gemini-3-flash-preview',
             contents: {
                 parts: [
                     { inlineData: { data: base64Image, mimeType: 'image/jpeg' } },
@@ -90,175 +111,185 @@ export const analyzeDBZVision = async (base64Image: string) => {
 
         const json = JSON.parse(response.text || "{}");
         return json;
-    } catch (e) {
-        console.error("Scouter Malfunction:", e);
-        return null; // Fallback to manual
-    }
+    });
 };
 
 export const generateSpeech = async (text: string, voiceName: string) => {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
-        contents: [{ parts: [{ text }] }],
-        config: {
-            responseModalities: [Modality.AUDIO],
-            speechConfig: {
-                voiceConfig: {
-                    prebuiltVoiceConfig: { voiceName: voiceName as any },
+    return safeApiCall(async () => {
+        const ai = getAI();
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-preview-tts",
+            contents: [{ parts: [{ text }] }],
+            config: {
+                responseModalities: [Modality.AUDIO],
+                speechConfig: {
+                    voiceConfig: {
+                        prebuiltVoiceConfig: { voiceName: voiceName as any },
+                    },
                 },
             },
-        },
+        });
+        return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     });
-
-    return response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
 };
 
 // --- Concept Studio (Image Gen/Edit) ---
 
 export const generateImage = async (prompt: string, aspectRatio: string = "1:1") => {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: {
-            parts: [{ text: prompt }],
-        },
-        config: {
-            imageConfig: {
-                aspectRatio: aspectRatio as any,
+    return safeApiCall(async () => {
+        const ai = getAI();
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: {
+                parts: [{ text: prompt }],
             },
-        },
-    });
+            config: {
+                imageConfig: {
+                    aspectRatio: aspectRatio as any,
+                },
+            },
+        });
 
-    const parts = response.candidates?.[0]?.content?.parts;
-    if (parts) {
-        for (const part of parts) {
-            if (part.inlineData) {
-                return part.inlineData.data; 
+        const parts = response.candidates?.[0]?.content?.parts;
+        if (parts) {
+            for (const part of parts) {
+                if (part.inlineData) {
+                    return part.inlineData.data; 
+                }
             }
         }
-    }
-    return null;
+        return null;
+    });
 };
 
 export const editImage = async (base64Image: string, mimeType: string, prompt: string) => {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-image',
-        contents: {
-            parts: [
-                {
-                    inlineData: {
-                        data: base64Image,
-                        mimeType: mimeType,
+    return safeApiCall(async () => {
+        const ai = getAI();
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: {
+                parts: [
+                    {
+                        inlineData: {
+                            data: base64Image,
+                            mimeType: mimeType,
+                        },
                     },
-                },
-                { text: prompt },
-            ],
-        },
-    });
+                    { text: prompt },
+                ],
+            },
+        });
 
-    const parts = response.candidates?.[0]?.content?.parts;
-    if (parts) {
-        for (const part of parts) {
-            if (part.inlineData) {
-                return part.inlineData.data; 
+        const parts = response.candidates?.[0]?.content?.parts;
+        if (parts) {
+            for (const part of parts) {
+                if (part.inlineData) {
+                    return part.inlineData.data; 
+                }
             }
         }
-    }
-    return null;
+        return null;
+    });
 };
 
 // --- Content Analyzer & Analytics Lab ---
 
 export const analyzeDataFile = async (content: string, fileName: string) => {
-    const ai = getAI();
-    const prompt = PROMPT_TEMPLATES.ANALYTICS_INTERPRETER(fileName);
-    
-    // We truncate content if it's massive to fit context window, though Gemini context is huge.
-    // Safe limit: 500k chars for basic text
-    const safeContent = content.length > 500000 ? content.substring(0, 500000) + "\n...[TRUNCATED]" : content;
+    return safeApiCall(async () => {
+        const ai = getAI();
+        const prompt = PROMPT_TEMPLATES.ANALYTICS_INTERPRETER(fileName);
+        
+        const safeContent = content.length > 500000 ? content.substring(0, 500000) + "\n...[TRUNCATED]" : content;
 
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview', // High reasoning for analytics
-        contents: `
-            ${prompt}
-            
-            --- DATA START ---
-            ${safeContent}
-            --- DATA END ---
-        `,
-        config: {
-            thinkingConfig: { thinkingBudget: 16000 }
-        }
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-pro-preview',
+            contents: `
+                ${prompt}
+                
+                --- DATA START ---
+                ${safeContent}
+                --- DATA END ---
+            `,
+            config: {
+                thinkingConfig: { thinkingBudget: 16000 }
+            }
+        });
+        
+        return response.text;
     });
-    
-    return response.text;
 };
 
 export const analyzeImage = async (prompt: string, image: { data: string, mimeType: string }) => {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: {
-            parts: [
-                { inlineData: { data: image.data, mimeType: image.mimeType } },
-                { text: prompt }
-            ]
-        }
+    return safeApiCall(async () => {
+        const ai = getAI();
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: {
+                parts: [
+                    { inlineData: { data: image.data, mimeType: image.mimeType } },
+                    { text: prompt }
+                ]
+            }
+        });
+        return response.text || "No analysis available.";
     });
-    return response.text || "No analysis available.";
 };
 
 export const analyzeVideo = async (prompt: string, video: { data: string, mimeType: string }) => {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: {
-            parts: [
-                { inlineData: { data: video.data, mimeType: video.mimeType } },
-                { text: prompt }
-            ]
-        }
+    return safeApiCall(async () => {
+        const ai = getAI();
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: {
+                parts: [
+                    { inlineData: { data: video.data, mimeType: video.mimeType } },
+                    { text: prompt }
+                ]
+            }
+        });
+        return response.text || "No analysis available.";
     });
-    return response.text || "No analysis available.";
 };
 
 export const transcribeAudio = async (prompt: string, audio: { data: string, mimeType: string }) => {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
-        contents: {
-            parts: [
-                { inlineData: { data: audio.data, mimeType: audio.mimeType } },
-                { text: prompt }
-            ]
-        }
+    return safeApiCall(async () => {
+        const ai = getAI();
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+            contents: {
+                parts: [
+                    { inlineData: { data: audio.data, mimeType: audio.mimeType } },
+                    { text: prompt }
+                ]
+            }
+        });
+        return response.text || "Transcription failed.";
     });
-    return response.text || "Transcription failed.";
 };
 
 export const complexAnalysis = async (prompt: string, media: { data: string, mimeType: string }) => {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-pro-preview',
-        contents: {
-            parts: [
-                { inlineData: { data: media.data, mimeType: media.mimeType } },
-                { text: prompt }
-            ]
-        },
-        config: {
-            thinkingConfig: { thinkingBudget: 16000 }
-        }
+    return safeApiCall(async () => {
+        const ai = getAI();
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-pro-preview',
+            contents: {
+                parts: [
+                    { inlineData: { data: media.data, mimeType: media.mimeType } },
+                    { text: prompt }
+                ]
+            },
+            config: {
+                thinkingConfig: { thinkingBudget: 16000 }
+            }
+        });
+        return response.text || "Analysis failed.";
     });
-    return response.text || "Analysis failed.";
 };
 
 
 // --- Deep Architect (Chat + Strategy) ---
 
-export const streamStrategyChat = async function* (history: any[], newMessage: string, mode: 'THINKING' | 'SEARCH' | 'FAST', systemInstruction?: string) {
+export const streamStrategyChat = async function* (history: any[], newMessage: string, mode: 'THINKING' | 'SEARCH' | 'FAST' | 'STANDARD', systemInstruction?: string) {
   const ai = getAI();
   
   let model = 'gemini-3-flash-preview';
@@ -276,43 +307,58 @@ export const streamStrategyChat = async function* (history: any[], newMessage: s
       };
   } else if (mode === 'FAST') {
       model = 'gemini-flash-lite-latest';
+  } else if (mode === 'STANDARD') {
+      model = 'gemini-3-flash-preview';
   }
 
-  const chat = ai.chats.create({
-      model: model,
-      history: history,
-      config: {
-          ...config,
-          systemInstruction: systemInstruction || PERSONALITIES.SOVEREIGN_ARCHITECT.instruction,
-      }
-  });
+  // We cannot wrap generator functions easily in safeApiCall without losing the generator property, 
+  // so we handle errors inside the generator.
+  try {
+      const chat = ai.chats.create({
+          model: model,
+          history: history,
+          config: {
+              ...config,
+              systemInstruction: systemInstruction || PERSONALITIES.SOVEREIGN_ARCHITECT.instruction,
+          }
+      });
 
-  const stream = await chat.sendMessageStream({ message: newMessage });
-  
-  for await (const chunk of stream) {
-      yield chunk;
+      const stream = await chat.sendMessageStream({ message: newMessage });
+      
+      for await (const chunk of stream) {
+          yield chunk;
+      }
+  } catch (error: any) {
+        console.error("Gemini Stream Error:", error);
+        const errorMsg = error.toString().toLowerCase();
+        if (errorMsg.includes("403") || errorMsg.includes("region not supported")) {
+            throw new Error("REGION_LOCKED: The requested AI model is currently unavailable in your geographic location.");
+        }
+        throw error;
   }
 };
 
 // --- AI Composer ---
 
 export const generateMusicalConcept = async (genre: string, mood: string, elements: string) => {
-    const ai = getAI();
-    const prompt = PROMPT_TEMPLATES.AI_COMPOSER(genre, mood, elements);
-    
-    const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            temperature: 1
+    return safeApiCall(async () => {
+        const ai = getAI();
+        const prompt = PROMPT_TEMPLATES.AI_COMPOSER(genre, mood, elements);
+        
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-flash-preview',
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                temperature: 1
+            }
+        });
+
+        try {
+            return JSON.parse(response.text || "{}");
+        } catch (e) {
+            console.error("Failed to parse music JSON", e);
+            return null;
         }
     });
-
-    try {
-        return JSON.parse(response.text || "{}");
-    } catch (e) {
-        console.error("Failed to parse music JSON", e);
-        return null;
-    }
 };

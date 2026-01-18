@@ -1,22 +1,25 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 
-interface Props {
+interface ModuleGuardProps {
   children?: ReactNode;
   moduleName: string;
 }
 
-interface State {
+interface ModuleGuardState {
   hasError: boolean;
   error: Error | null;
 }
 
-export class ModuleGuard extends Component<Props, State> {
-  state: State = {
-    hasError: false,
-    error: null,
-  };
+export class ModuleGuard extends Component<ModuleGuardProps, ModuleGuardState> {
+  constructor(props: ModuleGuardProps) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null,
+    };
+  }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): ModuleGuardState {
     return { hasError: true, error };
   }
 
@@ -26,22 +29,37 @@ export class ModuleGuard extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      const isRegionError = this.state.error?.message?.includes("REGION_LOCKED") || this.state.error?.toString().includes("403");
+
       return (
-        <div className="h-full w-full flex flex-col items-center justify-center bg-black p-8 text-center border-2 border-red-900 m-4 rounded-xl relative overflow-hidden">
+        <div className={`h-full w-full flex flex-col items-center justify-center p-8 text-center border-2 m-4 rounded-xl relative overflow-hidden ${isRegionError ? 'bg-zinc-900 border-yellow-600' : 'bg-black border-red-900'}`}>
           {/* Glitch Overlay */}
           <div className="absolute inset-0 bg-[url('https://upload.wikimedia.org/wikipedia/commons/7/76/Noise.png')] opacity-10 pointer-events-none"></div>
           
-          <h2 className="text-4xl font-bold text-red-500 font-mono mb-4 tracking-tighter">MODULE FAILURE</h2>
-          <div className="bg-zinc-900 p-4 rounded text-left font-mono text-xs text-red-300 max-w-lg overflow-auto mb-8 border border-red-900/50">
-            {this.state.error?.toString()}
+          <h2 className={`text-4xl font-bold font-mono mb-4 tracking-tighter ${isRegionError ? 'text-yellow-500' : 'text-red-500'}`}>
+             {isRegionError ? "GEO-RESTRICTION DETECTED" : "MODULE FAILURE"}
+          </h2>
+          
+          <div className="bg-black/50 p-6 rounded text-left font-mono text-sm max-w-lg overflow-auto mb-8 border border-white/10">
+            {isRegionError ? (
+                <div className="text-zinc-300">
+                    <p className="mb-4 font-bold text-yellow-500">ACCESS DENIED: 403 Forbidden</p>
+                    <p>The AI Model requested by this module is currently geofenced and unavailable in your region (e.g., EU/UK/Canada).</p>
+                    <p className="mt-4 text-xs text-zinc-500">ERROR: {this.state.error?.message}</p>
+                </div>
+            ) : (
+                <div className="text-red-300">
+                    {this.state.error?.toString()}
+                </div>
+            )}
           </div>
           
           <div className="flex gap-4 z-10">
               <button
                 onClick={() => this.setState({ hasError: false, error: null })}
-                className="px-6 py-3 bg-red-600 hover:bg-red-500 text-white font-bold font-mono rounded uppercase tracking-widest"
+                className={`px-6 py-3 text-white font-bold font-mono rounded uppercase tracking-widest ${isRegionError ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-red-600 hover:bg-red-500'}`}
               >
-                Reboot Module
+                {isRegionError ? 'Retry Connection' : 'Reboot Module'}
               </button>
               <button
                 onClick={() => window.location.reload()}
@@ -52,7 +70,7 @@ export class ModuleGuard extends Component<Props, State> {
           </div>
           
           <p className="mt-8 text-zinc-600 font-mono text-xs uppercase">
-             The Sovereign Hull remains intact. Isolate and repair.
+             {isRegionError ? "Secure Uplink Required (Check VPN/Region)" : "The Sovereign Hull remains intact. Isolate and repair."}
           </p>
         </div>
       );

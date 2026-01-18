@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { streamStrategyChat, generateSpeech, decodePCM } from '../../services/geminiService';
@@ -10,8 +11,14 @@ interface Message {
   timestamp: string;
 }
 
+const STORAGE_KEY_CHAT = 'brzi_companion_chat';
+
 const AICompanion: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+      // Load history synchronously
+      const stored = localStorage.getItem(STORAGE_KEY_CHAT);
+      return stored ? JSON.parse(stored) : [];
+  });
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [isTalking, setIsTalking] = useState(false);
@@ -26,6 +33,20 @@ const AICompanion: React.FC = () => {
   };
 
   useEffect(scrollToBottom, [messages, isStreaming]);
+
+  // Persist messages whenever they change
+  useEffect(() => {
+      if (messages.length > 0) {
+          localStorage.setItem(STORAGE_KEY_CHAT, JSON.stringify(messages));
+      }
+  }, [messages]);
+
+  const clearHistory = () => {
+      if(confirm("Clear chat memory?")) {
+          setMessages([]);
+          localStorage.removeItem(STORAGE_KEY_CHAT);
+      }
+  };
 
   const playResponse = async (text: string) => {
     if (isMuted) return;
@@ -86,7 +107,7 @@ const AICompanion: React.FC = () => {
         const stream = streamStrategyChat(
             apiHistory, 
             currentInput, 
-            'FAST', 
+            'STANDARD', 
             systemInstruction
         );
 
@@ -121,12 +142,18 @@ const AICompanion: React.FC = () => {
         // Trigger voice output after text is complete
         await playResponse(fullResponse);
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("Chat error:", error);
+        
+        let errorText = "Error: Connection interrupted.";
+        if (error.message?.includes("REGION_LOCKED")) {
+            errorText = "⚠️ SYSTEM ERROR: Region Lock Detected. The specific AI model used by this persona is unavailable in your current location.";
+        }
+
         setMessages(prev => [...prev, {
             id: Date.now().toString(),
             role: 'model',
-            content: "Error: Connection interrupted.",
+            content: errorText,
             timestamp: new Date().toLocaleTimeString()
         }]);
     } finally {
@@ -168,6 +195,15 @@ const AICompanion: React.FC = () => {
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                  </div>
              </div>
+
+             {/* Clear Button */}
+             <button 
+                onClick={clearHistory}
+                className="p-2 rounded bg-zinc-900 border border-zinc-700 text-zinc-500 hover:text-white"
+                title="Clear History"
+             >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+             </button>
 
              {/* Mute Toggle */}
              <button 

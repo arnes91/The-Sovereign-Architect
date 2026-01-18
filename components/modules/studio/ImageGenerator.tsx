@@ -23,12 +23,11 @@ export const ImageGenerator: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showHistory, setShowHistory] = useState(false);
-    const [history, setHistory] = useState<GeneratedImage[]>([]);
+    const [history, setHistory] = useState<GeneratedImage[]>(() => StorageService.getGeneratedImages());
 
     useEffect(() => {
-        if (showHistory) {
-            setHistory(StorageService.getGeneratedImages());
-        }
+        // Refresh history when view is toggled or component mounts
+        setHistory(StorageService.getGeneratedImages());
     }, [showHistory]);
 
     const handleGenerate = async () => {
@@ -54,6 +53,7 @@ export const ImageGenerator: React.FC = () => {
                 timestamp: Date.now()
             };
             StorageService.saveGeneratedImage(newItem);
+            setHistory(StorageService.getGeneratedImages()); // Update local state immediately
 
         } catch (err: any) {
             setError(err.message || 'Failed to generate image.');
