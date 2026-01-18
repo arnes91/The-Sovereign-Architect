@@ -15,6 +15,8 @@ const AICompanion: React.FC = () => {
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [isTalking, setIsTalking] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [activeStyle, setActiveStyle] = useState<keyof typeof PERSONALITIES.AI_COMPANION.styles>('DEFAULT');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -26,9 +28,13 @@ const AICompanion: React.FC = () => {
   useEffect(scrollToBottom, [messages, isStreaming]);
 
   const playResponse = async (text: string) => {
+    if (isMuted) return;
+    
     try {
         setIsTalking(true);
+        // Use the configured voice from personalities
         const audioBase64 = await generateSpeech(text, PERSONALITIES.AI_COMPANION.voice);
+        
         if (audioBase64) {
             const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
             audioContextRef.current = ctx;
@@ -68,11 +74,20 @@ const AICompanion: React.FC = () => {
             parts: [{ text: m.content }]
         }));
 
+        // Construct system instruction based on selected style
+        const styleConfig = PERSONALITIES.AI_COMPANION.styles[activeStyle];
+        const systemInstruction = `
+          ${PERSONALITIES.AI_COMPANION.instruction}
+          
+          --- CURRENT INTERACTION MODE: ${styleConfig.name} ---
+          ${styleConfig.instruction}
+        `;
+
         const stream = streamStrategyChat(
             apiHistory, 
             currentInput, 
             'FAST', 
-            PERSONALITIES.AI_COMPANION.instruction
+            systemInstruction
         );
 
         let fullResponse = "";
@@ -115,14 +130,50 @@ const AICompanion: React.FC = () => {
   return (
     <div className="h-full flex flex-col p-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="mb-6 border-b border-zinc-800 pb-4 flex justify-between items-center">
+      <div className="mb-6 border-b border-zinc-800 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
             <h2 className="text-3xl font-sans font-bold text-white">AI COMPANION</h2>
-            <p className="text-zinc-500 font-mono text-sm">Personalized Strategic Partner</p>
+            <div className="flex items-center gap-2">
+                <p className="text-zinc-500 font-mono text-sm">Personalized Strategic Partner</p>
+                {isTalking && (
+                     <span className="flex h-2 w-2 relative">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyber-green opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-cyber-green"></span>
+                     </span>
+                )}
+            </div>
         </div>
-        <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isTalking ? 'bg-cyber-green animate-pulse' : 'bg-zinc-700'}`}></div>
-            <span className="text-xs font-mono text-zinc-500">{isTalking ? 'SPEAKING' : 'IDLE'}</span>
+
+        {/* Controls */}
+        <div className="flex items-center gap-3">
+             {/* Style Selector */}
+             <div className="relative">
+                 <select 
+                    value={activeStyle}
+                    onChange={(e) => setActiveStyle(e.target.value as keyof typeof PERSONALITIES.AI_COMPANION.styles)}
+                    className="appearance-none bg-zinc-900 border border-zinc-700 text-xs font-mono text-white py-2 pl-3 pr-8 rounded focus:border-cyber-green outline-none cursor-pointer"
+                 >
+                    {Object.entries(PERSONALITIES.AI_COMPANION.styles).map(([key, style]) => (
+                        <option key={key} value={key}>{style.name.toUpperCase()}</option>
+                    ))}
+                 </select>
+                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-zinc-500">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                 </div>
+             </div>
+
+             {/* Mute Toggle */}
+             <button 
+                onClick={() => setIsMuted(!isMuted)}
+                className={`p-2 rounded border transition-all ${isMuted ? 'bg-red-900/30 border-red-800 text-red-400' : 'bg-zinc-900 border-zinc-700 text-cyber-green'}`}
+                title={isMuted ? "Unmute Voice" : "Mute Voice"}
+             >
+                {isMuted ? (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" /></svg>
+                ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+                )}
+             </button>
         </div>
       </div>
 
@@ -134,6 +185,7 @@ const AICompanion: React.FC = () => {
                      <div className="w-12 h-12 bg-zinc-800 rounded-full animate-pulse"></div>
                  </div>
                  <p className="font-mono text-sm">Online. Ready to assist.</p>
+                 <p className="font-mono text-xs text-zinc-600 mt-2">Current Mode: {PERSONALITIES.AI_COMPANION.styles[activeStyle].name}</p>
              </div>
         )}
         
