@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { streamStrategyChat, generateSpeech, decodePCM } from '../../services/geminiService';
 import { PERSONALITIES } from '../../config/personalities';
+import { PROMPT_TEMPLATES } from '../../config/promptTemplates';
 
 interface Message {
   id: string;
@@ -15,7 +16,6 @@ const STORAGE_KEY_CHAT = 'brzi_companion_chat';
 
 const AICompanion: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>(() => {
-      // Load history synchronously
       const stored = localStorage.getItem(STORAGE_KEY_CHAT);
       return stored ? JSON.parse(stored) : [];
   });
@@ -23,6 +23,8 @@ const AICompanion: React.FC = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [isTalking, setIsTalking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  // Use Styles from PromptTemplates? Or keep Personality config for keys?
+  // We use Personality Config for Keys/Names, and Templates for text.
   const [activeStyle, setActiveStyle] = useState<keyof typeof PERSONALITIES.AI_COMPANION.styles>('DEFAULT');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -34,7 +36,6 @@ const AICompanion: React.FC = () => {
 
   useEffect(scrollToBottom, [messages, isStreaming]);
 
-  // Persist messages whenever they change
   useEffect(() => {
       if (messages.length > 0) {
           localStorage.setItem(STORAGE_KEY_CHAT, JSON.stringify(messages));
@@ -50,12 +51,9 @@ const AICompanion: React.FC = () => {
 
   const playResponse = async (text: string) => {
     if (isMuted) return;
-    
     try {
         setIsTalking(true);
-        // Use the configured voice from personalities
         const audioBase64 = await generateSpeech(text, PERSONALITIES.AI_COMPANION.voice);
-        
         if (audioBase64) {
             const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
             audioContextRef.current = ctx;
@@ -95,13 +93,15 @@ const AICompanion: React.FC = () => {
             parts: [{ text: m.content }]
         }));
 
-        // Construct system instruction based on selected style
-        const styleConfig = PERSONALITIES.AI_COMPANION.styles[activeStyle];
+        const styleName = PERSONALITIES.AI_COMPANION.styles[activeStyle].name;
+        // Map active style key to template text
+        const styleInstruction = PROMPT_TEMPLATES.AI_COMPANION_STYLES[activeStyle];
+
         const systemInstruction = `
-          ${PERSONALITIES.AI_COMPANION.instruction}
+          ${PROMPT_TEMPLATES.AI_COMPANION_CORE}
           
-          --- CURRENT INTERACTION MODE: ${styleConfig.name} ---
-          ${styleConfig.instruction}
+          --- CURRENT INTERACTION MODE: ${styleName} ---
+          ${styleInstruction}
         `;
 
         const stream = streamStrategyChat(
@@ -118,9 +118,6 @@ const AICompanion: React.FC = () => {
             const text = chunk.text;
             if (text) {
                 fullResponse += text;
-                
-                // Only create the model message when the first chunk arrives
-                // This keeps the "Thinking" indicator visible during latency
                 if (!hasStarted) {
                     hasStarted = true;
                     setMessages(prev => [...prev, {
@@ -138,18 +135,14 @@ const AICompanion: React.FC = () => {
                 }
             }
         }
-
-        // Trigger voice output after text is complete
         await playResponse(fullResponse);
 
     } catch (error: any) {
         console.error("Chat error:", error);
-        
         let errorText = "Error: Connection interrupted.";
         if (error.message?.includes("REGION_LOCKED")) {
-            errorText = "⚠️ SYSTEM ERROR: Region Lock Detected. The specific AI model used by this persona is unavailable in your current location.";
+            errorText = "⚠️ SYSTEM ERROR: Region Lock Detected.";
         }
-
         setMessages(prev => [...prev, {
             id: Date.now().toString(),
             role: 'model',
@@ -163,7 +156,6 @@ const AICompanion: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col p-6 max-w-4xl mx-auto">
-      {/* Header */}
       <div className="mb-6 border-b border-zinc-800 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
             <h2 className="text-3xl font-sans font-bold text-white">AI COMPANION</h2>
@@ -177,10 +169,7 @@ const AICompanion: React.FC = () => {
                 )}
             </div>
         </div>
-
-        {/* Controls */}
         <div className="flex items-center gap-3">
-             {/* Style Selector */}
              <div className="relative">
                  <select 
                     value={activeStyle}
@@ -195,8 +184,6 @@ const AICompanion: React.FC = () => {
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                  </div>
              </div>
-
-             {/* Clear Button */}
              <button 
                 onClick={clearHistory}
                 className="p-2 rounded bg-zinc-900 border border-zinc-700 text-zinc-500 hover:text-white"
@@ -204,8 +191,6 @@ const AICompanion: React.FC = () => {
              >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
              </button>
-
-             {/* Mute Toggle */}
              <button 
                 onClick={() => setIsMuted(!isMuted)}
                 className={`p-2 rounded border transition-all ${isMuted ? 'bg-red-900/30 border-red-800 text-red-400' : 'bg-zinc-900 border-zinc-700 text-cyber-green'}`}
@@ -219,8 +204,6 @@ const AICompanion: React.FC = () => {
              </button>
         </div>
       </div>
-
-      {/* Chat Area */}
       <div className="flex-1 overflow-y-auto mb-6 pr-2 space-y-4">
         {messages.length === 0 && (
              <div className="h-full flex flex-col items-center justify-center text-zinc-700 opacity-50">
@@ -231,7 +214,6 @@ const AICompanion: React.FC = () => {
                  <p className="font-mono text-xs text-zinc-600 mt-2">Current Mode: {PERSONALITIES.AI_COMPANION.styles[activeStyle].name}</p>
              </div>
         )}
-        
         {messages.map((msg) => (
             <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
                 <div className={`max-w-[80%] rounded-xl p-4 ${
@@ -248,8 +230,6 @@ const AICompanion: React.FC = () => {
                 </span>
             </div>
         ))}
-        
-        {/* Thinking Indicator: Visible only when streaming AND last message is user (before first chunk) */}
         {isStreaming && (messages.length === 0 || messages[messages.length - 1]?.role === 'user') && (
              <div className="flex justify-start">
                  <div className="bg-black border border-zinc-900 rounded-xl rounded-bl-none p-4 flex items-center gap-2">
@@ -261,8 +241,6 @@ const AICompanion: React.FC = () => {
         )}
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Input Area */}
       <div className="relative bg-zinc-900 border border-zinc-700 rounded-lg p-1 flex items-center">
           <input 
             type="text" 
@@ -288,5 +266,4 @@ const AICompanion: React.FC = () => {
     </div>
   );
 };
-
 export default AICompanion;

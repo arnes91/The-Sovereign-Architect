@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 import { PERSONALITIES } from '../config/personalities';
 import { PROMPT_TEMPLATES } from '../config/promptTemplates';
 
@@ -70,10 +70,15 @@ export const generateDBZTaunt = async (powerLevel: number, stats: any) => {
       const ai = getAI();
       const tiers = PERSONALITIES.DBZ_SCANNER.tiers;
       const isHighTier = powerLevel > tiers.HIGH.threshold;
-      const selectedPersona = isHighTier ? tiers.HIGH : tiers.LOW;
+      // Mid tier check
+      const isMidTier = powerLevel > tiers.MID.threshold && powerLevel <= tiers.HIGH.threshold;
+      
+      let selectedPersona = tiers.LOW;
+      if (isHighTier) selectedPersona = tiers.HIGH;
+      else if (isMidTier) selectedPersona = tiers.MID;
       
       const prompt = PROMPT_TEMPLATES.DBZ_TAUNT(
-        selectedPersona.instruction,
+        selectedPersona.name,
         powerLevel.toLocaleString(),
         JSON.stringify(stats)
       );
@@ -311,15 +316,16 @@ export const streamStrategyChat = async function* (history: any[], newMessage: s
       model = 'gemini-3-flash-preview';
   }
 
-  // We cannot wrap generator functions easily in safeApiCall without losing the generator property, 
-  // so we handle errors inside the generator.
+  // Use Centralized Prompt if default
+  const instruction = systemInstruction || PROMPT_TEMPLATES.SOVEREIGN_ARCHITECT;
+
   try {
       const chat = ai.chats.create({
           model: model,
           history: history,
           config: {
               ...config,
-              systemInstruction: systemInstruction || PERSONALITIES.SOVEREIGN_ARCHITECT.instruction,
+              systemInstruction: instruction,
           }
       });
 
