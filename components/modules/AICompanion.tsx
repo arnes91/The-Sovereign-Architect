@@ -91,23 +91,30 @@ const AICompanion: React.FC = () => {
         );
 
         let fullResponse = "";
-        
-        // Add placeholder for model response
-        const responseId = (Date.now() + 1).toString();
-        setMessages(prev => [...prev, {
-            id: responseId,
-            role: 'model',
-            content: '',
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        }]);
+        let hasStarted = false;
 
         for await (const chunk of stream) {
             const text = chunk.text;
             if (text) {
                 fullResponse += text;
-                setMessages(prev => prev.map(m => 
-                    m.id === responseId ? { ...m, content: fullResponse } : m
-                ));
+                
+                // Only create the model message when the first chunk arrives
+                // This keeps the "Thinking" indicator visible during latency
+                if (!hasStarted) {
+                    hasStarted = true;
+                    setMessages(prev => [...prev, {
+                        id: (Date.now() + 1).toString(),
+                        role: 'model',
+                        content: fullResponse,
+                        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    }]);
+                } else {
+                    setMessages(prev => {
+                        const newArr = [...prev];
+                        newArr[newArr.length - 1].content = fullResponse;
+                        return newArr;
+                    });
+                }
             }
         }
 
@@ -206,7 +213,8 @@ const AICompanion: React.FC = () => {
             </div>
         ))}
         
-        {isStreaming && messages[messages.length - 1]?.role === 'user' && (
+        {/* Thinking Indicator: Visible only when streaming AND last message is user (before first chunk) */}
+        {isStreaming && (messages.length === 0 || messages[messages.length - 1]?.role === 'user') && (
              <div className="flex justify-start">
                  <div className="bg-black border border-zinc-900 rounded-xl rounded-bl-none p-4 flex items-center gap-2">
                      <span className="w-1.5 h-1.5 bg-cyber-green rounded-full animate-bounce"></span>

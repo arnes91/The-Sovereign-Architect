@@ -25,7 +25,33 @@ const DBZScanner: React.FC = () => {
   const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
-      if (viewState === 'HUD') {
+      // Check for deep link sharing
+      const params = new URLSearchParams(window.location.search);
+      const scanData = params.get('scan');
+      
+      if (scanData && viewState === 'HUD') {
+          try {
+             // Decode safe Base64
+             const jsonStr = decodeURIComponent(escape(atob(scanData)));
+             const data = JSON.parse(jsonStr);
+             
+             if (data.p && data.s) {
+                 setCurrentPower(data.p);
+                 setCurrentTaunt(data.t || "Data Link Corrupted.");
+                 setCurrentPersona(data.c || "Unknown");
+                 setCurrentStats(data.s);
+                 // Note: Shared link does not contain heavy image data.
+                 setViewState('RESULT');
+                 
+                 // Clean URL
+                 window.history.replaceState({}, '', window.location.pathname);
+             }
+          } catch (e) {
+              console.error("Deep Link Error", e);
+          }
+      }
+
+      if (viewState === 'HUD' && !scanData) {
           startCamera();
       } else {
           stopCamera();
@@ -236,6 +262,9 @@ const DBZScanner: React.FC = () => {
                   <img src={scannedImage} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent"></div>
               </div>
+          )}
+          {!scannedImage && (
+             <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
           )}
 
           <div className="relative z-10 flex flex-col h-full p-6">

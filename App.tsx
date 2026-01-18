@@ -15,7 +15,14 @@ import AnalyticsLab from './components/modules/AnalyticsLab';
 import KnowledgeBase from './components/modules/KnowledgeBase';
 
 const App: React.FC = () => {
-  const [currentView, setCurrentView] = useState<View>(View.DASHBOARD);
+  const [currentView, setCurrentView] = useState<View>(() => {
+    // Deep Linking Check
+    if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('scan')) return View.DBZ_SCANNER;
+    }
+    return View.DASHBOARD;
+  });
 
   const renderView = () => {
     switch (currentView) {
