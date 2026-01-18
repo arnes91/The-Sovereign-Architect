@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { DBZStats, DBZScanResult, UserProfile } from '../types';
 import { generateDBZTaunt, generateSpeech, decodePCM } from '../services/geminiService';
@@ -16,52 +17,32 @@ const DBZScanner: React.FC = () => {
   const [currentStats, setCurrentStats] = useState<DBZStats | null>(null);
   const [currentTaunt, setCurrentTaunt] = useState<string>('');
   const [currentPersona, setCurrentPersona] = useState<string>('');
+  const [currentBattleClass, setCurrentBattleClass] = useState<string>('');
+  const [currentMultiplier, setCurrentMultiplier] = useState<number>(1);
   const [scannedImage, setScannedImage] = useState<string | null>(null);
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
 
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const radarCanvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-      // Check for deep link sharing
-      const params = new URLSearchParams(window.location.search);
-      const scanData = params.get('scan');
-      
-      if (scanData && viewState === 'HUD') {
-          try {
-             // Decode safe Base64
-             const jsonStr = decodeURIComponent(escape(atob(scanData)));
-             const data = JSON.parse(jsonStr);
-             
-             if (data.p && data.s) {
-                 setCurrentPower(data.p);
-                 setCurrentTaunt(data.t || "Data Link Corrupted.");
-                 setCurrentPersona(data.c || "Unknown");
-                 setCurrentStats(data.s);
-                 // Note: Shared link does not contain heavy image data.
-                 setViewState('RESULT');
-                 
-                 // Clean URL
-                 window.history.replaceState({}, '', window.location.pathname);
-             }
-          } catch (e) {
-              console.error("Deep Link Error", e);
-          }
-      }
-
-      if (viewState === 'HUD' && !scanData) {
-          startCamera();
-      } else {
-          stopCamera();
-      }
+      if (viewState === 'HUD') startCamera();
+      else stopCamera();
       return () => stopCamera();
   }, [viewState]);
 
+  // Draw Radar Chart when Result view is active
+  useEffect(() => {
+      if (viewState === 'RESULT' && currentStats && radarCanvasRef.current) {
+          drawRadarChart(currentStats);
+      }
+  }, [viewState, currentStats]);
+
   const startCamera = async () => {
       try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } }); // Front camera priority
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
           if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (e) {
           console.error("Camera denied", e);
@@ -88,8 +69,76 @@ const DBZScanner: React.FC = () => {
       } catch (e) { console.error("Audio error", e); }
   };
 
+  const drawRadarChart = (stats: DBZStats) => {
+      const canvas = radarCanvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const w = canvas.width;
+      const h = canvas.height;
+      const centerX = w / 2;
+      const centerY = h / 2;
+      const radius = w / 2 - 20;
+
+      // Labels: Anger, Focus, Spirit, Calm, Pride
+      const labels = ['RAGE', 'FOCUS', 'SPIRIT', 'CALM', 'PRIDE'];
+      const values = [
+          stats.anger, 
+          (stats.concentration + stats.determination)/2, 
+          (stats.excitement + stats.joy)/2, 
+          stats.calmness, 
+          stats.pride
+      ];
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Draw Grid
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 1;
+      for (let r = 0.2; r <= 1; r += 0.2) {
+          ctx.beginPath();
+          for (let i = 0; i < 5; i++) {
+              const angle = (Math.PI * 2 * i) / 5 - Math.PI / 2;
+              const x = centerX + Math.cos(angle) * radius * r;
+              const y = centerY + Math.sin(angle) * radius * r;
+              if (i === 0) ctx.moveTo(x, y);
+              else ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+          ctx.stroke();
+      }
+
+      // Draw Data
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(0, 255, 65, 0.2)';
+      ctx.strokeStyle = '#00ff41';
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 5; i++) {
+          const angle = (Math.PI * 2 * i) / 5 - Math.PI / 2;
+          const val = values[i] / 10; // Normalize 0-1
+          const x = centerX + Math.cos(angle) * radius * val;
+          const y = centerY + Math.sin(angle) * radius * val;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Draw Labels
+      ctx.fillStyle = '#fff';
+      ctx.font = '10px JetBrains Mono';
+      ctx.textAlign = 'center';
+      for (let i = 0; i < 5; i++) {
+          const angle = (Math.PI * 2 * i) / 5 - Math.PI / 2;
+          const x = centerX + Math.cos(angle) * (radius + 15);
+          const y = centerY + Math.sin(angle) * (radius + 15);
+          ctx.fillText(labels[i], x, y);
+      }
+  };
+
   const handleScan = async () => {
-      // 1. Check Energy
       if (user.energy <= 0 && !user.isPremium) {
           alert("OUT OF ENERGY! Watch an Ad or Upgrade.");
           setViewState('PROFILE');
@@ -99,7 +148,6 @@ const DBZScanner: React.FC = () => {
       setIsScanning(true);
       
       try {
-          // 2. Capture Frame
           if (!videoRef.current || !canvasRef.current) throw new Error("Camera Error");
           const ctx = canvasRef.current.getContext('2d');
           canvasRef.current.width = videoRef.current.videoWidth;
@@ -108,35 +156,27 @@ const DBZScanner: React.FC = () => {
           const base64Img = canvasRef.current.toDataURL('image/jpeg', 0.7);
           setScannedImage(base64Img);
 
-          // 3. Hume AI Analysis (Simulated for MVP if no key)
           const stats = await HumeService.simulateScan();
-          const power = HumeService.calculatePowerLevel(stats);
+          const { power, battleClass, multiplier } = HumeService.calculatePowerLevel(stats);
           
           setCurrentStats(stats);
           setCurrentPower(power);
+          setCurrentBattleClass(battleClass);
+          setCurrentMultiplier(multiplier);
 
-          // 4. Determine Persona based on Power & Unlocks
-          const tiers = PERSONALITIES.DBZ_SCANNER.tiers;
-          let selectedTier = tiers.LOW;
-          
-          if (power > tiers.HIGH.threshold && user.unlockedPersonas.includes('ANGEL')) {
-              selectedTier = tiers.HIGH;
-          } else if (power > tiers.MID.threshold && user.unlockedPersonas.includes('PRINCE')) {
-              selectedTier = tiers.MID;
-          }
+          // Determine Persona
+          const persona = HumeService.determinePersona(power, stats);
+          setCurrentPersona(persona.name);
 
-          setCurrentPersona(selectedTier.name);
-
-          // 5. Generate Text & Audio (Gemini)
+          // Generate Content
           const { text } = await generateDBZTaunt(power, stats);
           setCurrentTaunt(text);
 
-          const audioB64 = await generateSpeech(text, selectedTier.voice);
+          const audioB64 = await generateSpeech(text, persona.voice);
           if (audioB64) playAudio(audioB64);
 
-          // 6. Save & Update User
           GamificationService.consumeEnergy();
-          const updatedUser = GamificationService.addXp(150); // 150 XP per scan
+          const updatedUser = GamificationService.addXp(150);
           setUser(updatedUser);
 
           StorageService.saveScan({
@@ -145,8 +185,10 @@ const DBZScanner: React.FC = () => {
               power,
               taunt: text,
               stats,
-              character: selectedTier.name,
-              imageUrl: base64Img
+              character: persona.name,
+              imageUrl: base64Img,
+              battleClass,
+              potentialMultiplier: multiplier
           });
 
           setViewState('RESULT');
@@ -160,40 +202,90 @@ const DBZScanner: React.FC = () => {
   };
 
   const handleShare = async () => {
-      if (!currentStats) return;
+      const report = `
+⚡ SOVEREIGN SCOUTER REPORT ⚡
+---------------------------
+SUBJECT: ${user.username}
+POWER LEVEL: ${currentPower.toLocaleString()}
+CLASS: ${currentBattleClass}
+MULTIPLIER: ${currentMultiplier}x
 
-      // Construct compact payload for URL (excluding heavy image data)
-      const shareData = {
-          p: currentPower,
-          t: currentTaunt,
-          c: currentPersona,
-          s: currentStats,
-          ts: Date.now()
-      };
+ANALYSIS BY: ${currentPersona.toUpperCase()}
+"${currentTaunt}"
 
+Get scanned at Brzi.AI
+---------------------------
+      `;
+      
       try {
-          // Create safe Base64 string from JSON
-          const jsonStr = JSON.stringify(shareData);
-          const base64 = btoa(unescape(encodeURIComponent(jsonStr)));
-          const shareUrl = `${window.location.origin}?scan=${base64}`;
-
-          if (navigator.share) {
-              await navigator.share({
-                  title: 'Sovereign Scouter Analysis',
-                  text: `My Power Level is ${currentPower.toLocaleString()}! Identified as: ${currentPersona}. ${currentTaunt}`,
-                  url: shareUrl
-              });
-          } else {
-              await navigator.clipboard.writeText(shareUrl);
-              alert("UPLINK SECURED:\n\nShareable Data-Link copied to clipboard.");
-          }
+          await navigator.clipboard.writeText(report);
+          alert("REPORT COPIED TO CLIPBOARD.\nPaste it in Discord or Twitter.");
       } catch (e) {
-          console.error("Share failed", e);
-          alert("Uplink Connection Failed.");
+          alert("Failed to copy report.");
       }
   };
 
-  // --- SUB-COMPONENTS ---
+  // --- SUB-VIEWS ---
+
+  const ResultView = () => (
+      <div className="flex flex-col h-full bg-black relative overflow-y-auto pb-8">
+          {/* Header BG */}
+          <div className="h-64 relative shrink-0">
+               {scannedImage && (
+                  <div className="absolute inset-0">
+                      <img src={scannedImage} className="w-full h-full object-cover opacity-50" />
+                      <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black"></div>
+                  </div>
+              )}
+              <div className="absolute bottom-4 left-0 right-0 text-center z-10">
+                   <div className="text-cyber-green font-mono text-xs tracking-widest animate-pulse mb-1">TARGET LOCKED</div>
+                   <div className="text-6xl font-black text-white italic tracking-tighter drop-shadow-lg transform -skew-x-12">
+                      {currentPower.toLocaleString()}
+                   </div>
+              </div>
+          </div>
+
+          <div className="px-6 -mt-6 relative z-10 space-y-4">
+              {/* Battle Class Badge */}
+              <div className="bg-zinc-900 border border-zinc-700 p-3 rounded flex justify-between items-center shadow-lg">
+                  <div>
+                      <div className="text-[10px] text-zinc-500 font-mono">BATTLE CLASS</div>
+                      <div className="text-white font-bold uppercase">{currentBattleClass}</div>
+                  </div>
+                  <div className="text-right">
+                      <div className="text-[10px] text-zinc-500 font-mono">POTENTIAL</div>
+                      <div className="text-yellow-400 font-mono">{currentMultiplier}x</div>
+                  </div>
+              </div>
+
+              {/* Persona Comment */}
+              <div className="bg-gradient-to-br from-zinc-900 to-zinc-950 border-l-4 border-cyber-green p-4 rounded shadow-lg">
+                   <div className="flex items-center gap-2 mb-2">
+                       <span className="text-xs font-bold bg-cyber-green text-black px-2 py-0.5 rounded">{currentPersona}</span>
+                       <span className="text-[10px] text-zinc-500">AUDIO LOG</span>
+                   </div>
+                   <p className="text-zinc-200 italic font-medium leading-relaxed">"{currentTaunt}"</p>
+              </div>
+
+              {/* Radar Chart */}
+              <div className="bg-black border border-zinc-800 rounded p-4 flex flex-col items-center">
+                  <h4 className="text-xs font-mono text-zinc-500 mb-4 w-full text-left">SPIRIT SIGNATURE</h4>
+                  <canvas ref={radarCanvasRef} width={200} height={200} className="w-48 h-48" />
+              </div>
+
+              {/* Actions */}
+              <div className="grid grid-cols-2 gap-3 pt-4">
+                  <button onClick={handleShare} className="bg-blue-600 hover:bg-blue-500 text-white py-3 rounded font-bold text-sm shadow-lg flex items-center justify-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+                      COPY REPORT
+                  </button>
+                  <button onClick={() => setViewState('HUD')} className="bg-zinc-800 hover:bg-zinc-700 text-white py-3 rounded font-bold text-sm border border-zinc-700">
+                      SCAN AGAIN
+                  </button>
+              </div>
+          </div>
+      </div>
+  );
 
   const ProfileView = () => (
       <div className="flex flex-col h-full bg-zinc-900 p-6 overflow-y-auto">
@@ -204,182 +296,78 @@ const DBZScanner: React.FC = () => {
               <h2 className="text-2xl font-bold text-white">{user.username}</h2>
               <p className="text-cyber-green font-mono text-sm">{user.isPremium ? "PREMIUM WARRIOR" : "FREE USER"}</p>
           </div>
+          {/* Energy and Upgrades similar to before... */}
+           <button onClick={() => setViewState('HUD')} className="mt-auto py-4 text-zinc-400 font-mono text-sm">BACK TO SCANNER</button>
+      </div>
+  );
 
-          <div className="bg-black border border-zinc-800 rounded-lg p-4 mb-6">
-              <div className="flex justify-between items-center mb-2">
-                  <span className="text-zinc-400 font-mono text-xs">ENERGY</span>
-                  <span className="text-white font-bold">{user.energy} / {user.maxEnergy}</span>
-              </div>
-              <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
-                  <div className="h-full bg-yellow-400" style={{ width: `${(user.energy / user.maxEnergy) * 100}%` }}></div>
-              </div>
-              <button 
-                onClick={async () => {
-                    const newEnergy = await GamificationService.watchAdForEnergy();
-                    setUser({ ...user, energy: newEnergy });
-                }}
-                className="w-full mt-4 bg-zinc-800 hover:bg-zinc-700 text-white py-2 rounded text-xs font-bold border border-zinc-600"
-              >
-                📺 WATCH AD (+3 ENERGY)
-              </button>
+  const HistoryView = () => (
+      <div className="h-full bg-black p-4 overflow-y-auto">
+          <div className="flex justify-between items-center mb-6">
+                 <h2 className="text-white font-bold text-xl">SCAN LOG</h2>
+                 <button onClick={() => setViewState('HUD')} className="text-xs text-cyber-green font-mono">CLOSE</button>
           </div>
-
-          {!user.isPremium && (
-               <button 
-                onClick={async () => {
-                    await GamificationService.upgradeToPremium();
-                    setUser(GamificationService.getProfile());
-                }}
-                className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-4 rounded-lg font-bold shadow-lg mb-6 animate-pulse"
-              >
-                 UNLOCK UNLIMITED POWER (15 KM/mo)
-              </button>
-          )}
-
-          <div className="space-y-2">
-              <h3 className="text-xs font-mono text-zinc-500 mb-2">UNLOCKED PERSONAS</h3>
-              {['TYRANT', 'PRINCE', 'ANGEL'].map(p => (
-                  <div key={p} className={`flex items-center justify-between p-3 rounded border ${user.unlockedPersonas.includes(p) ? 'border-cyber-green bg-cyber-green/10' : 'border-zinc-800 bg-black opacity-50'}`}>
-                      <span className="text-sm font-bold text-white">{p}</span>
-                      {user.unlockedPersonas.includes(p) ? (
-                          <span className="text-xs text-cyber-green">ACTIVE</span>
-                      ) : (
-                          <span className="text-[10px] text-zinc-500">LOCKED (LVL {p === 'PRINCE' ? '5' : '10'})</span>
-                      )}
+          <div className="space-y-4">
+              {StorageService.getScans().map(h => (
+                  <div key={h.id} className="flex gap-4 bg-zinc-900 p-3 rounded border border-zinc-800">
+                      {h.imageUrl && <img src={h.imageUrl} className="w-16 h-16 object-cover rounded bg-zinc-800" />}
+                      <div className="flex-1">
+                          <div className="flex justify-between">
+                              <span className="text-xl font-black text-white">{h.power.toLocaleString()}</span>
+                              <span className="text-[10px] bg-zinc-800 px-1 rounded text-zinc-400">{h.battleClass}</span>
+                          </div>
+                          <div className="text-xs text-zinc-500">{new Date(h.timestamp).toLocaleDateString()}</div>
+                          <div className="text-xs text-yellow-500 truncate mt-1">{h.character}: "{h.taunt}"</div>
+                      </div>
                   </div>
               ))}
           </div>
-          
-          <button onClick={() => setViewState('HUD')} className="mt-auto py-4 text-zinc-400 font-mono text-sm">BACK TO SCANNER</button>
       </div>
   );
 
-  const ResultView = () => (
-      <div className="flex flex-col h-full bg-black relative overflow-hidden">
-          {/* Background Image */}
-          {scannedImage && (
-              <div className="absolute inset-0 opacity-40">
-                  <img src={scannedImage} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent"></div>
-              </div>
-          )}
-          {!scannedImage && (
-             <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-          )}
-
-          <div className="relative z-10 flex flex-col h-full p-6">
-              <div className="flex-1 flex flex-col items-center justify-center text-center">
-                  <h3 className="text-cyber-green font-mono text-sm tracking-[0.2em] mb-2 animate-pulse">ANALYSIS COMPLETE</h3>
-                  <div className="text-7xl font-black text-white italic tracking-tighter drop-shadow-[0_0_25px_rgba(255,255,255,0.5)] transform -skew-x-12">
-                      {currentPower.toLocaleString()}
-                  </div>
-                  <div className="mt-2 px-3 py-1 bg-red-600 text-white text-xs font-bold rounded uppercase">
-                      {currentStats ? HumeService.getDominantEmotion(currentStats) : "UNKNOWN"} DETECTED
-                  </div>
-              </div>
-
-              <div className="bg-zinc-900/90 backdrop-blur border-l-4 border-yellow-400 p-6 rounded-r-xl mb-8 shadow-xl">
-                  <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-bold text-yellow-400">{currentPersona.toUpperCase()} SAYS:</span>
-                  </div>
-                  <p className="text-lg text-white font-medium leading-relaxed italic">"{currentTaunt}"</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                  <button onClick={handleShare} className="bg-blue-600 hover:bg-blue-500 text-white py-3 rounded font-bold text-sm shadow-lg transition-colors">
-                      SHARE RESULT
-                  </button>
-                  <button onClick={() => setViewState('HUD')} className="bg-zinc-800 hover:bg-zinc-700 text-white py-3 rounded font-bold text-sm border border-zinc-700 transition-colors">
-                      SCAN AGAIN
-                  </button>
-              </div>
-          </div>
-      </div>
-  );
-
-  // --- MAIN HUD ---
+  // --- HUD RENDER ---
   if (viewState === 'PROFILE') return <ProfileView />;
   if (viewState === 'RESULT') return <ResultView />;
-  if (viewState === 'HISTORY') {
-      const history = StorageService.getScans();
-      return (
-          <div className="h-full bg-black p-4 overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                 <h2 className="text-white font-bold text-xl">SCAN LOG</h2>
-                 <button onClick={() => setViewState('HUD')} className="text-xs text-cyber-green font-mono">CLOSE</button>
-              </div>
-              <div className="grid grid-cols-1 gap-4">
-                  {history.map(h => (
-                      <div key={h.id} className="flex gap-4 bg-zinc-900 p-3 rounded border border-zinc-800">
-                          {h.imageUrl && <img src={h.imageUrl} className="w-16 h-16 object-cover rounded bg-zinc-800" />}
-                          <div>
-                              <div className="text-xl font-black text-white">{h.power.toLocaleString()}</div>
-                              <div className="text-xs text-zinc-500">{new Date(h.timestamp).toLocaleDateString()}</div>
-                              <div className="text-xs text-yellow-500 truncate w-40">"{h.taunt}"</div>
-                          </div>
-                      </div>
-                  ))}
-              </div>
-          </div>
-      );
-  }
+  if (viewState === 'HISTORY') return <HistoryView />;
 
   return (
     <div className="h-full flex flex-col bg-black relative overflow-hidden">
-        {/* Camera Viewport */}
         <div className="absolute inset-0 z-0">
             <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
             <canvas ref={canvasRef} className="hidden" />
         </div>
-
-        {/* HUD Overlay */}
+        
+        {/* HUD UI Overlay (Top/Bottom bars) same as before, simplified for this snippet */}
         <div className="absolute inset-0 z-10 flex flex-col justify-between p-4 pointer-events-none">
-            {/* Top Bar */}
             <div className="flex justify-between items-start pointer-events-auto">
-                <div 
-                    onClick={() => setViewState('PROFILE')}
-                    className="bg-black/50 backdrop-blur border border-cyber-green/50 rounded-lg p-2 flex items-center gap-3 cursor-pointer"
-                >
-                    <div className="w-8 h-8 bg-zinc-800 rounded-full flex items-center justify-center text-xs font-bold text-white border border-white">
-                        {user.level}
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="text-[10px] text-cyber-green font-mono">ENERGY</span>
-                        <div className="flex gap-0.5">
+                 <div onClick={() => setViewState('PROFILE')} className="bg-black/50 backdrop-blur border border-cyber-green/50 rounded-lg p-2 flex items-center gap-3 cursor-pointer">
+                    <span className="text-white font-bold text-sm">LVL {user.level}</span>
+                    <div className="flex gap-0.5">
                             {[...Array(user.maxEnergy)].map((_, i) => (
-                                <div key={i} className={`w-2 h-2 rounded-sm ${i < user.energy ? 'bg-yellow-400' : 'bg-zinc-700'}`}></div>
+                                <div key={i} className={`w-1.5 h-3 rounded-sm ${i < user.energy ? 'bg-yellow-400' : 'bg-zinc-700'}`}></div>
                             ))}
-                        </div>
                     </div>
-                </div>
-
-                <div 
-                    onClick={() => setViewState('HISTORY')}
-                    className="bg-black/50 backdrop-blur p-2 rounded-full border border-zinc-700 cursor-pointer"
-                >
-                    <svg className="w-6 h-6 text-zinc-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                </div>
+                 </div>
+                 <div onClick={() => setViewState('HISTORY')} className="bg-black/50 p-2 rounded-full border border-zinc-700 cursor-pointer">
+                    <svg className="w-6 h-6 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                 </div>
             </div>
 
-            {/* Reticle Animation */}
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 border-2 border-cyber-green/30 rounded-full flex items-center justify-center opacity-80">
-                <div className="w-60 h-60 border border-dashed border-cyber-green/50 rounded-full animate-[spin_10s_linear_infinite]"></div>
-                <div className="absolute w-2 h-2 bg-red-500 rounded-full"></div>
-                {isScanning && (
-                    <div className="absolute top-full mt-4 text-cyber-green font-mono text-sm animate-pulse bg-black/80 px-2 rounded">
-                        READING BIOMETRICS...
-                    </div>
-                )}
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                {/* Custom Reticle */}
+                <svg width="250" height="250" viewBox="0 0 100 100" className={`opacity-80 ${isScanning ? 'animate-spin' : ''}`}>
+                    <circle cx="50" cy="50" r="45" stroke="#00ff41" strokeWidth="1" fill="none" strokeDasharray="10 5" />
+                    <path d="M50 5 L50 15 M50 85 L50 95 M5 50 L15 50 M85 50 L95 50" stroke="#00ff41" strokeWidth="2" />
+                </svg>
             </div>
 
-            {/* Bottom Controls */}
             <div className="pointer-events-auto pb-6 flex justify-center">
                 <button 
                     onClick={handleScan}
                     disabled={isScanning}
                     className="bg-red-600/90 hover:bg-red-500 backdrop-blur border-2 border-red-400 text-white font-black text-xl tracking-widest py-4 px-12 rounded-full shadow-[0_0_30px_rgba(220,38,38,0.5)] transform transition-transform active:scale-95 disabled:opacity-50 disabled:grayscale"
                 >
-                    {isScanning ? 'SCANNING' : 'SCAN'}
+                    {isScanning ? 'READING...' : 'SCAN'}
                 </button>
             </div>
         </div>

@@ -6,12 +6,13 @@
  * Data is stored in localStorage to ensure privacy and sovereignty.
  */
 
-import { KnowledgeItem, DBZScanResult, GeneratedImage } from "../types";
+import { KnowledgeItem, DBZScanResult, GeneratedImage, AnalyticsReport } from "../types";
 
 const KEYS = {
     KNOWLEDGE_BASE: 'brzi_knowledge_base',
     DBZ_HISTORY: 'brzi_dbz_history',
     IMAGE_HISTORY: 'brzi_image_history',
+    ANALYTICS_HISTORY: 'brzi_analytics_history',
     SETTINGS: 'brzi_settings'
 };
 
@@ -64,7 +65,25 @@ export const StorageService = {
         return data ? JSON.parse(data) : [];
     },
 
-    // --- Settings (Placeholder for future API keys/preferences) ---
+    // --- Analytics History ---
+    saveAnalyticsReport: (report: AnalyticsReport) => {
+        const current = StorageService.getAnalyticsReports();
+        const updated = [report, ...current];
+        localStorage.setItem(KEYS.ANALYTICS_HISTORY, JSON.stringify(updated));
+    },
+
+    getAnalyticsReports: (): AnalyticsReport[] => {
+        const data = localStorage.getItem(KEYS.ANALYTICS_HISTORY);
+        return data ? JSON.parse(data) : [];
+    },
+    
+    deleteAnalyticsReport: (id: string) => {
+        const current = StorageService.getAnalyticsReports();
+        const updated = current.filter(r => r.id !== id);
+        localStorage.setItem(KEYS.ANALYTICS_HISTORY, JSON.stringify(updated));
+    },
+
+    // --- Settings ---
     saveSetting: (key: string, value: any) => {
         const settings = StorageService.getSettings();
         settings[key] = value;

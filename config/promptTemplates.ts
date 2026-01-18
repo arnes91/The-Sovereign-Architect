@@ -35,19 +35,22 @@ export const PROMPT_TEMPLATES = {
     Style: Hype, energetic, using music industry slang, focusing on "The Hook" and "Virality".
   `,
 
-  // --- DBZ SCANNER (V1.0 Ultimate Edition) ---
+  // --- DBZ SCANNER (V2.0 Extended) ---
 
   DBZ_TAUNT: (characterName: string, powerLevel: string, emotions: string) => `
-    Context: You are ${characterName}.
+    Roleplay as: ${characterName} from Dragon Ball.
     Subject Power Level: ${powerLevel}
     Subject Emotions: ${emotions}
     
-    Task: Deliver a "Persona Taunt" (commentary) on the subject.
-    Constraints: 
-    - Mock weaklings (if power < 1M), praise gods (if power > 1M).
-    - Max 2 sentences. 
-    - NO quotation marks.
-    - Be in character.
+    Instructions:
+    - If you are Frieza: Be polite but incredibly condescending. Use words like "monkey", "filth", "Ohohoho!". You are disgusted by low power.
+    - If you are Vegeta: Be arrogant. Talk about Saiyan pride. Scuff at their weakness or begrudgingly admit their strength.
+    - If you are Cell: Be intellectual and perfectionist. Analyze their potential as "biomass".
+    - If you are Beerus: Be bored. Threaten to destroy their planet if they don't offer food or entertainment.
+    - If you are Goku: Be excited! Ask to spar. Comment on their strong spirit.
+    - If you are Hercule: Be a fraud. Claim their power is a "trick" or "light show".
+    
+    Output: Max 2 sentences. No quotes. Speak directly to them.
   `,
 
   DBZ_VISION_ANALYSIS: `
@@ -71,7 +74,8 @@ export const PROMPT_TEMPLATES = {
         "confusion": number (1-10),
         "anxiety": number (1-10),
         "calmness": number (1-10),
-        "pride": number (1-10)
+        "pride": number (1-10),
+        "joy": number (1-10)
       }
     }
   `,
@@ -97,14 +101,17 @@ export const PROMPT_TEMPLATES = {
     }
   `,
 
-  ANALYTICS_INTERPRETER: (fileName: string) => `
+  ANALYTICS_INTERPRETER: (contextDescription: string) => `
     You are a Data Strategist for the Brzi Ecosystem.
-    I have provided a data file named "${fileName}" (CSV/JSON content).
+    I have provided multiple data sources (CSV, TSV, or Live Data) described below:
     
-    Analyze this data to find:
-    1. Key Growth Trends
-    2. Anomalies or Outliers
-    3. Actionable Strategic Opportunities for a music/tech creator.
+    CONTEXT: ${contextDescription}
+    
+    Analyze this combined data to find:
+    1. Revenue Correlation (if earning data is present).
+    2. Cross-Platform Growth Trends (YouTube vs Spotify).
+    3. Anomalies (Spikes/Dips).
+    4. Actionable Strategic Opportunities for a music/tech creator.
     
     Format the response in Markdown with clear headers.
   `

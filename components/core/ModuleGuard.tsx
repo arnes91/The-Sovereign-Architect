@@ -1,4 +1,4 @@
-import React, { ErrorInfo, ReactNode } from "react";
+import React, { Component, ErrorInfo, ReactNode } from "react";
 
 interface ModuleGuardProps {
   children?: ReactNode;
@@ -10,7 +10,7 @@ interface ModuleGuardState {
   error: Error | null;
 }
 
-export class ModuleGuard extends React.Component<ModuleGuardProps, ModuleGuardState> {
+export class ModuleGuard extends Component<ModuleGuardProps, ModuleGuardState> {
   constructor(props: ModuleGuardProps) {
     super(props);
     this.state = {

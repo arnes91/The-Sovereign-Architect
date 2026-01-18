@@ -46,7 +46,8 @@ export interface DBZStats {
   confusion: number;
   anxiety: number;
   calmness: number;
-  pride: number; // Added for Vegeta-style logic
+  pride: number;
+  joy: number;
 }
 
 export interface DBZScanResult {
@@ -54,10 +55,22 @@ export interface DBZScanResult {
   timestamp: number;
   power: number;
   taunt: string;
-  character: string; // The persona responding
+  character: string;
   stats: DBZStats;
   imageUrl?: string;
   shareUrl?: string;
+  battleClass?: string; // e.g. "Planetary Threat"
+  potentialMultiplier?: number;
+}
+
+// --- ANALYTICS TYPES ---
+
+export interface AnalyticsReport {
+  id: string;
+  title: string;
+  date: number;
+  summary: string;
+  tags: string[];
 }
 
 // --- GAMIFICATION TYPES ---
@@ -67,7 +80,7 @@ export interface UserProfile {
   username: string;
   level: number;
   xp: number;
-  energy: number; // Free scans remaining
+  energy: number;
   maxEnergy: number;
   isPremium: boolean;
   unlockedPersonas: string[];

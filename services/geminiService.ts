@@ -1,7 +1,7 @@
-
 import { GoogleGenAI, Modality } from "@google/genai";
 import { PERSONALITIES } from '../config/personalities';
 import { PROMPT_TEMPLATES } from '../config/promptTemplates';
+import { HumeService } from './humeService';
 
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -68,14 +68,8 @@ async function safeApiCall<T>(apiCall: () => Promise<T>): Promise<T> {
 export const generateDBZTaunt = async (powerLevel: number, stats: any) => {
   return safeApiCall(async () => {
       const ai = getAI();
-      const tiers = PERSONALITIES.DBZ_SCANNER.tiers;
-      const isHighTier = powerLevel > tiers.HIGH.threshold;
-      // Mid tier check
-      const isMidTier = powerLevel > tiers.MID.threshold && powerLevel <= tiers.HIGH.threshold;
       
-      let selectedPersona = tiers.LOW;
-      if (isHighTier) selectedPersona = tiers.HIGH;
-      else if (isMidTier) selectedPersona = tiers.MID;
+      const selectedPersona = HumeService.determinePersona(powerLevel, stats);
       
       const prompt = PROMPT_TEMPLATES.DBZ_TAUNT(
         selectedPersona.name,

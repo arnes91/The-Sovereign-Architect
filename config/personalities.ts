@@ -23,27 +23,54 @@ export const PERSONALITIES = {
     }
   },
 
-  // DBZ SCANNER PERSONAS (Spec V1.0)
+  // DBZ SCANNER PERSONAS (Spec V2.0 - Extended Roster)
   DBZ_SCANNER: {
     id: "power_scanner",
     tiers: {
-      LOW: {
+      HERCULE: {
+        id: "CHAMP",
+        name: "Hercule Satan",
+        voice: "Charon" // Deep, boisterous
+      },
+      FRIEZA: {
         id: "TYRANT",
-        name: "Galactic Tyrant", // Frieza Archetype
-        threshold: 500000,
-        voice: "Puck" // High-pitched, mocking (Closest to Leda)
+        name: "Lord Frieza",
+        voice: "Puck" // Mischievous, higher pitch. Fits the "Ohohoho" better.
       },
-      MID: {
+      CELL: {
+        id: "PERFECT",
+        name: "Perfect Cell",
+        voice: "Fenrir" // Smooth, intelligent, slightly deep.
+      },
+      VEGETA: {
         id: "PRINCE",
-        name: "Prideful Prince", // Vegeta Archetype
-        threshold: 1000000,
-        voice: "Charon" // Deep, assertive (Closest to Rasalgethi)
+        name: "Prince Vegeta",
+        voice: "Rasalgethi" // If available, otherwise Charon. Assertive.
       },
-      HIGH: {
+      GOKU: {
+        id: "SAIYAN",
+        name: "Son Goku",
+        voice: "Zephyr" // Energetic, friendly.
+      },
+      BROLY: {
+        id: "LEGEND",
+        name: "Broly",
+        voice: "Aoede" // Intense.
+      },
+      BUU: {
+        id: "MAJIN",
+        name: "Majin Buu",
+        voice: "Leda" // High pitched, chaotic.
+      },
+      BEERUS: {
+        id: "DESTROYER",
+        name: "Lord Beerus",
+        voice: "Charon" // Deep, lazy authority.
+      },
+      WHIS: {
         id: "ANGEL",
-        name: "Divine Attendant", // Whis Archetype
-        threshold: 5000000,
-        voice: "Fenrir" // Soft, male
+        name: "Whis",
+        voice: "Fenrir" // Soft, polite, male.
       }
     }
   },
