@@ -13,7 +13,9 @@ const KEYS = {
     DBZ_HISTORY: 'brzi_dbz_history',
     IMAGE_HISTORY: 'brzi_image_history',
     ANALYTICS_HISTORY: 'brzi_analytics_history',
-    SETTINGS: 'brzi_settings'
+    SETTINGS: 'brzi_settings',
+    LIVE_MEMORY: 'brzi_live_uplink_memory', // New: Miku's Memory
+    CHAT_HISTORY: 'brzi_ai_companion_chat'
 };
 
 export const StorageService = {
@@ -25,8 +27,10 @@ export const StorageService = {
     },
 
     getKnowledgeItems: (): KnowledgeItem[] => {
-        const data = localStorage.getItem(KEYS.KNOWLEDGE_BASE);
-        return data ? JSON.parse(data) : [];
+        try {
+            const data = localStorage.getItem(KEYS.KNOWLEDGE_BASE);
+            return data ? JSON.parse(data) : [];
+        } catch (e) { return []; }
     },
 
     deleteKnowledgeItem: (id: string) => {
@@ -38,31 +42,39 @@ export const StorageService = {
     // --- DBZ History ---
     saveScan: (scan: DBZScanResult) => {
         const current = StorageService.getScans();
-        // Keep last 10 scans only to save space
-        const updated = [scan, ...current].slice(0, 10);
+        const updated = [scan, ...current].slice(0, 50); // Increased limit
         localStorage.setItem(KEYS.DBZ_HISTORY, JSON.stringify(updated));
     },
 
     getScans: (): DBZScanResult[] => {
-        const data = localStorage.getItem(KEYS.DBZ_HISTORY);
-        return data ? JSON.parse(data) : [];
+        try {
+            const data = localStorage.getItem(KEYS.DBZ_HISTORY);
+            return data ? JSON.parse(data) : [];
+        } catch (e) { return []; }
     },
 
     // --- Image History ---
     saveGeneratedImage: (item: GeneratedImage) => {
         const current = StorageService.getGeneratedImages();
-        // Keep last 10 images to avoid localStorage quotas (Base64 is heavy)
-        const updated = [item, ...current].slice(0, 10);
+        // Limit to 20 images to manage localstorage quota
+        const updated = [item, ...current].slice(0, 20); 
         try {
             localStorage.setItem(KEYS.IMAGE_HISTORY, JSON.stringify(updated));
         } catch (e) {
             console.error("Storage Quota Exceeded. Could not save image history.");
+            // Try to make space by removing oldest
+            if (current.length > 5) {
+                 const smaller = [item, ...current.slice(0, 5)];
+                 localStorage.setItem(KEYS.IMAGE_HISTORY, JSON.stringify(smaller));
+            }
         }
     },
 
     getGeneratedImages: (): GeneratedImage[] => {
-        const data = localStorage.getItem(KEYS.IMAGE_HISTORY);
-        return data ? JSON.parse(data) : [];
+        try {
+            const data = localStorage.getItem(KEYS.IMAGE_HISTORY);
+            return data ? JSON.parse(data) : [];
+        } catch (e) { return []; }
     },
 
     // --- Analytics History ---
@@ -73,8 +85,10 @@ export const StorageService = {
     },
 
     getAnalyticsReports: (): AnalyticsReport[] => {
-        const data = localStorage.getItem(KEYS.ANALYTICS_HISTORY);
-        return data ? JSON.parse(data) : [];
+        try {
+            const data = localStorage.getItem(KEYS.ANALYTICS_HISTORY);
+            return data ? JSON.parse(data) : [];
+        } catch (e) { return []; }
     },
     
     deleteAnalyticsReport: (id: string) => {
@@ -83,15 +97,32 @@ export const StorageService = {
         localStorage.setItem(KEYS.ANALYTICS_HISTORY, JSON.stringify(updated));
     },
 
-    // --- Settings ---
-    saveSetting: (key: string, value: any) => {
-        const settings = StorageService.getSettings();
-        settings[key] = value;
-        localStorage.setItem(KEYS.SETTINGS, JSON.stringify(settings));
+    // --- LIVE UPLINK MEMORY (NEW) ---
+    saveLiveMemory: (summary: string) => {
+        // Append new summary to existing memory
+        const current = StorageService.getLiveMemory();
+        // Keep a rolling context of last ~2000 chars to avoid token limits
+        const updated = (current + "\n" + summary).slice(-2000);
+        localStorage.setItem(KEYS.LIVE_MEMORY, updated);
     },
 
-    getSettings: () => {
-        const data = localStorage.getItem(KEYS.SETTINGS);
-        return data ? JSON.parse(data) : {};
+    getLiveMemory: (): string => {
+        return localStorage.getItem(KEYS.LIVE_MEMORY) || "";
+    },
+    
+    clearLiveMemory: () => {
+        localStorage.removeItem(KEYS.LIVE_MEMORY);
+    },
+
+    // --- CHAT COMPANION HISTORY ---
+    saveChatHistory: (messages: any[]) => {
+        localStorage.setItem(KEYS.CHAT_HISTORY, JSON.stringify(messages));
+    },
+
+    getChatHistory: (): any[] => {
+        try {
+            const data = localStorage.getItem(KEYS.CHAT_HISTORY);
+            return data ? JSON.parse(data) : [];
+        } catch (e) { return []; }
     }
 };

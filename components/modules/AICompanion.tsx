@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { streamStrategyChat, generateSpeech, decodePCM } from '../../services/geminiService';
+import { StorageService } from '../../services/storageService';
 import { PERSONALITIES } from '../../config/personalities';
 import { PROMPT_TEMPLATES } from '../../config/promptTemplates';
 
@@ -12,20 +13,12 @@ interface Message {
   timestamp: string;
 }
 
-const STORAGE_KEY_CHAT = 'brzi_companion_chat';
-
 const AICompanion: React.FC = () => {
-  const [messages, setMessages] = useState<Message[]>(() => {
-      const stored = localStorage.getItem(STORAGE_KEY_CHAT);
-      return stored ? JSON.parse(stored) : [];
-  });
+  const [messages, setMessages] = useState<Message[]>(() => StorageService.getChatHistory());
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [isTalking, setIsTalking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  
-  // Use Styles from PromptTemplates? Or keep Personality config for keys?
-  // We use Personality Config for Keys/Names, and Templates for text.
   const [activeStyle, setActiveStyle] = useState<keyof typeof PERSONALITIES.AI_COMPANION.styles>('DEFAULT');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -37,16 +30,15 @@ const AICompanion: React.FC = () => {
 
   useEffect(scrollToBottom, [messages, isStreaming]);
 
+  // SAVE TO STORAGE ON CHANGE
   useEffect(() => {
-      if (messages.length > 0) {
-          localStorage.setItem(STORAGE_KEY_CHAT, JSON.stringify(messages));
-      }
+      StorageService.saveChatHistory(messages);
   }, [messages]);
 
   const clearHistory = () => {
       if(confirm("Clear chat memory?")) {
           setMessages([]);
-          localStorage.removeItem(STORAGE_KEY_CHAT);
+          StorageService.saveChatHistory([]);
       }
   };
 
@@ -95,12 +87,10 @@ const AICompanion: React.FC = () => {
         }));
 
         const styleName = PERSONALITIES.AI_COMPANION.styles[activeStyle].name;
-        // Map active style key to template text
         const styleInstruction = PROMPT_TEMPLATES.AI_COMPANION_STYLES[activeStyle];
 
         const systemInstruction = `
           ${PROMPT_TEMPLATES.AI_COMPANION_CORE}
-          
           --- CURRENT INTERACTION MODE: ${styleName} ---
           ${styleInstruction}
         `;

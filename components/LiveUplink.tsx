@@ -2,6 +2,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { arrayBufferToBase64, decodePCM } from '../services/geminiService';
+import { StorageService } from '../services/storageService';
 import { PROMPT_TEMPLATES } from '../config/promptTemplates';
 import { PERSONALITIES } from '../config/personalities';
 
@@ -9,8 +10,8 @@ const LiveUplink: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [log, setLog] = useState<string[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null); // For video frame capture
-  const visualizerCanvasRef = useRef<HTMLCanvasElement>(null); // For audio visualization
+  const canvasRef = useRef<HTMLCanvasElement>(null); 
+  const visualizerCanvasRef = useRef<HTMLCanvasElement>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   
   // Audio Context Refs
@@ -21,11 +22,21 @@ const LiveUplink: React.FC = () => {
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
   const rafIdRef = useRef<number | null>(null);
 
+  // Session Memory
+  const sessionTranscriptsRef = useRef<string[]>([]);
+
   const addLog = (msg: string) => setLog(prev => [...prev.slice(-4), msg]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      // SAVE MEMORY ON EXIT
+      if (sessionTranscriptsRef.current.length > 0) {
+          const summary = "Session Log: " + sessionTranscriptsRef.current.join(" | ");
+          StorageService.saveLiveMemory(summary);
+          console.log("Memory Saved.");
+      }
+
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
       if (inputAudioContextRef.current) inputAudioContextRef.current.close();
       if (outputAudioContextRef.current) outputAudioContextRef.current.close();
@@ -35,15 +46,21 @@ const LiveUplink: React.FC = () => {
   const connect = async () => {
     try {
       addLog("BOOT SEQUENCE: MIKU_VAJFUŠA.exe");
+      addLog("LOADING LTM (Long Term Memory)...");
+      
+      const previousContext = StorageService.getLiveMemory();
+      const memoryInjection = previousContext 
+        ? `\n\n[PREVIOUS CONVERSATION MEMORY]:\n${previousContext}\n\nUse this memory to recognize the user and continue previous topics.` 
+        : "";
+
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       // Setup Audio Contexts
       inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       
-      // Setup Analyser for VISUALIZER (We connect OUTPUT audio here to visualize the AI Speaking)
       analyserRef.current = outputAudioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 256; // High responsiveness
+      analyserRef.current.fftSize = 256; 
       
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
@@ -54,7 +71,6 @@ const LiveUplink: React.FC = () => {
             addLog("PROTOCOL ACTIVE.");
             setIsConnected(true);
             
-            // Setup Input Stream (Mic -> AI)
             if (!inputAudioContextRef.current) return;
             const source = inputAudioContextRef.current.createMediaStreamSource(stream);
             const scriptProcessor = inputAudioContextRef.current.createScriptProcessor(4096, 1, 1);
@@ -82,30 +98,35 @@ const LiveUplink: React.FC = () => {
             source.connect(scriptProcessor);
             scriptProcessor.connect(inputAudioContextRef.current.destination);
 
-            // Start the Glitch Visualizer
             startGlitchVisualizer();
           },
           onmessage: async (message: LiveServerMessage) => {
-             // Audio Output Handling
+             // Audio Output
              const base64Audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
              if (base64Audio && outputAudioContextRef.current && analyserRef.current) {
                  const ctx = outputAudioContextRef.current;
                  const audioBuffer = decodePCM(base64Audio, ctx, 24000);
-                 
                  const source = ctx.createBufferSource();
                  source.buffer = audioBuffer;
-                 
-                 // Route audio through analyser for visuals, then to speakers
                  source.connect(analyserRef.current);
                  analyserRef.current.connect(ctx.destination);
-                 
                  const startTime = Math.max(nextStartTimeRef.current, ctx.currentTime);
                  source.start(startTime);
                  nextStartTimeRef.current = startTime + audioBuffer.duration;
              }
              
+             // Capture Transcripts for Memory
+             if (message.serverContent?.modelTurn?.parts?.[0]?.text) {
+                 const text = message.serverContent.modelTurn.parts[0].text;
+                 sessionTranscriptsRef.current.push(`AI: ${text}`);
+             }
+             
              if (message.serverContent?.turnComplete) {
-                 addLog("Turn Complete.");
+                 // Trigger a save every turn to be safe
+                 const summary = sessionTranscriptsRef.current.join(" | ");
+                 StorageService.saveLiveMemory(summary);
+                 sessionTranscriptsRef.current = []; // Clear buffer after save to avoid dups
+                 addLog("Turn Complete (Memory Saved).");
              }
           },
           onclose: () => {
@@ -122,11 +143,12 @@ const LiveUplink: React.FC = () => {
             speechConfig: {
                 voiceConfig: { prebuiltVoiceConfig: { voiceName: PERSONALITIES.MIKU_GLITCH.voice as any } }
             },
-            systemInstruction: PROMPT_TEMPLATES.LIVE_UPLINK_MIKU
+            // INJECT MEMORY HERE
+            systemInstruction: PROMPT_TEMPLATES.LIVE_UPLINK_MIKU + memoryInjection
         }
       };
 
-      // @ts-ignore - types mismatch in beta SDK sometimes
+      // @ts-ignore
       sessionPromiseRef.current = ai.live.connect(config);
 
     } catch (err: any) {
@@ -149,7 +171,6 @@ const LiveUplink: React.FC = () => {
     const render = () => {
         rafIdRef.current = requestAnimationFrame(render);
         
-        // Reset canvas size for full container fill
         canvas.width = canvas.parentElement?.clientWidth || 300;
         canvas.height = canvas.parentElement?.clientHeight || 300;
         const width = canvas.width;
@@ -159,31 +180,24 @@ const LiveUplink: React.FC = () => {
 
         analyser.getByteFrequencyData(dataArray);
 
-        // Calculate Bass Hit
         let bass = 0;
         for(let i=0; i<20; i++) bass += dataArray[i];
         bass = bass / 20;
 
-        // Clear screen with fade for trails
         ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
         ctx.fillRect(0, 0, width, height);
 
-        ctx.save(); // Save state before glitch transform
+        ctx.save(); 
 
-        // GLITCH EFFECT on HIGH INTENSITY ONLY
-        // Threshold increased to 140 (out of 255) to stop constant shaking
         if(bass > 140) { 
             const shiftX = (Math.random() - 0.5) * 15;
             const shiftY = (Math.random() - 0.5) * 5;
-            ctx.translate(shiftX, shiftY); // Shake screen
+            ctx.translate(shiftX, shiftY); 
             
-            // Random glitch rectangles
             if(Math.random() > 0.8) {
                  ctx.fillStyle = COLOR_SECONDARY;
                  ctx.fillRect(Math.random() * width, Math.random() * height, width, 4);
             }
-            
-            // Color Inversion Flicker
             if (Math.random() > 0.9) {
                 ctx.globalCompositeOperation = 'difference';
                 ctx.fillStyle = 'white';
@@ -191,34 +205,28 @@ const LiveUplink: React.FC = () => {
                 ctx.globalCompositeOperation = 'source-over';
             }
         } else {
-            ctx.setTransform(1,0,0,1,0,0); // Reset shake
+            ctx.setTransform(1,0,0,1,0,0);
         }
 
-        const radius = 80 + (bass * 0.5); // Pulse size
+        const radius = 80 + (bass * 0.5);
 
-        // Draw Circular Spectrum
         ctx.beginPath();
         for (let i = 0; i < bufferLength; i++) {
             const barHeight = dataArray[i] * 0.8;
             const angle = (i * 2 * Math.PI) / bufferLength;
-
-            // Mirror logic for perfect circle
             const x = cx + Math.cos(angle) * (radius + barHeight * 0.5);
             const y = cy + Math.sin(angle) * (radius + barHeight * 0.5);
-
             if (i === 0) ctx.moveTo(x, y);
             else ctx.lineTo(x, y);
         }
         ctx.closePath();
 
-        // Style the line
         ctx.lineWidth = bass > 120 ? 4 : 2;
         ctx.strokeStyle = bass > 140 ? '#fff' : COLOR_PRIMARY;
         ctx.shadowBlur = bass > 120 ? 15 : 5;
         ctx.shadowColor = COLOR_PRIMARY;
         ctx.stroke();
 
-        // Particles / Digital Rain (Only on drop)
         if (bass > 130) {
             for(let k=0; k<2; k++){
                 ctx.fillStyle = Math.random() > 0.5 ? COLOR_PRIMARY : COLOR_SECONDARY;
@@ -231,7 +239,7 @@ const LiveUplink: React.FC = () => {
             }
         }
         
-        ctx.restore(); // Restore state
+        ctx.restore(); 
     };
     render();
   };
@@ -242,18 +250,13 @@ const LiveUplink: React.FC = () => {
           if(videoRef.current) {
               videoRef.current.srcObject = stream;
               setIsCameraActive(true);
-              
-              // Frame loop
               const sendFrame = () => {
                   if(!canvasRef.current || !videoRef.current) return;
                   const ctx = canvasRef.current.getContext('2d');
                   if(!ctx) return;
-                  
-                  canvasRef.current.width = videoRef.current.videoWidth / 4; // Low res for speed
+                  canvasRef.current.width = videoRef.current.videoWidth / 4; 
                   canvasRef.current.height = videoRef.current.videoHeight / 4;
-                  
                   ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
-                  
                   const base64 = canvasRef.current.toDataURL('image/jpeg', 0.5).split(',')[1];
                   
                   if (sessionPromiseRef.current) {
@@ -263,10 +266,8 @@ const LiveUplink: React.FC = () => {
                         });
                     });
                   }
-                  
                   if(isCameraActive) requestAnimationFrame(sendFrame);
               };
-              // Only send frames occasionally to save bandwidth/compute
               setInterval(sendFrame, 1000); 
           }
       } catch (e) {
@@ -274,9 +275,15 @@ const LiveUplink: React.FC = () => {
       }
   };
 
+  const clearMemory = () => {
+      if(confirm("Wipe Miku's Memory? She will forget everything.")) {
+          StorageService.clearLiveMemory();
+          addLog("MEMORY PURGED.");
+      }
+  };
+
   return (
     <div className="h-full flex flex-col p-6 relative overflow-hidden bg-black">
-      {/* Background Matrix/Grid Overlay */}
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 pointer-events-none"></div>
       
       <div className="flex justify-between items-center mb-8 z-10">
@@ -284,23 +291,21 @@ const LiveUplink: React.FC = () => {
             <h2 className="text-4xl font-black font-mono text-transparent bg-clip-text bg-gradient-to-r from-[#39c5bb] to-[#ff00ff] tracking-tighter">
             MIKU VAJFUŠA
             </h2>
-            <p className="text-[10px] font-mono text-[#39c5bb] tracking-[0.3em]">GLITCH CORE PROTOCOL // v9.1</p>
+            <p className="text-[10px] font-mono text-[#39c5bb] tracking-[0.3em]">GLITCH CORE PROTOCOL // v9.2 PERSISTENT</p>
         </div>
-        <div className={`px-3 py-1 text-xs font-mono border ${isConnected ? 'border-[#39c5bb] text-[#39c5bb] animate-pulse' : 'border-red-900 text-red-900'}`}>
-          {isConnected ? 'SYSTEM ONLINE' : 'OFFLINE'}
+        <div className="flex gap-2">
+             <button onClick={clearMemory} className="px-3 py-1 text-xs font-mono border border-zinc-700 text-zinc-500 hover:border-red-500 hover:text-red-500 transition-colors">
+                 WIPE MEMORY
+             </button>
+             <div className={`px-3 py-1 text-xs font-mono border ${isConnected ? 'border-[#39c5bb] text-[#39c5bb] animate-pulse' : 'border-red-900 text-red-900'}`}>
+                {isConnected ? 'SYSTEM ONLINE' : 'OFFLINE'}
+            </div>
         </div>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center z-10 gap-8 relative">
-        
-        {/* Interactive Visualizer Canvas */}
         <div className="relative w-full h-[400px] flex items-center justify-center">
-             <canvas 
-                ref={visualizerCanvasRef} 
-                className="w-full h-full"
-            />
-            
-            {/* Overlay Text inside visualizer */}
+             <canvas ref={visualizerCanvasRef} className="w-full h-full"/>
             {!isConnected && (
                 <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
                     <h1 className="text-6xl font-black text-white/10 tracking-widest">WAITING</h1>
@@ -313,7 +318,6 @@ const LiveUplink: React.FC = () => {
             )}
         </div>
 
-        {/* Video Preview (Hidden but active) */}
         <video ref={videoRef} autoPlay playsInline muted className="hidden" />
         <canvas ref={canvasRef} className="hidden" />
 

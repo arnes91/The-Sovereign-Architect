@@ -14,6 +14,7 @@ import AIComposer from './components/modules/AIComposer';
 import AnalyticsLab from './components/modules/AnalyticsLab';
 import KnowledgeBase from './components/modules/KnowledgeBase';
 import Visualizer from './components/Visualizer';
+import UploadDeck from './components/modules/UploadDeck';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(() => {
@@ -47,6 +48,8 @@ const App: React.FC = () => {
         return <ModuleGuard moduleName="Live Uplink"><LiveUplink /></ModuleGuard>;
       case View.VISUALIZER: 
         return <ModuleGuard moduleName="Visualizer"><Visualizer /></ModuleGuard>;
+      case View.UPLOAD_DECK: 
+        return <ModuleGuard moduleName="Upload Deck"><UploadDeck /></ModuleGuard>;
       default: 
         return <ModuleGuard moduleName="Dashboard"><Dashboard onNavigate={setCurrentView} /></ModuleGuard>;
     }
