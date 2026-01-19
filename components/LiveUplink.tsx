@@ -34,7 +34,7 @@ const LiveUplink: React.FC = () => {
       if (sessionTranscriptsRef.current.length > 0) {
           const summary = "Session Log: " + sessionTranscriptsRef.current.join(" | ");
           StorageService.saveLiveMemory(summary);
-          console.log("Memory Saved.");
+          console.log("Memory Saved on Exit.");
       }
 
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
@@ -49,8 +49,9 @@ const LiveUplink: React.FC = () => {
       addLog("LOADING LTM (Long Term Memory)...");
       
       const previousContext = StorageService.getLiveMemory();
+      // Inject strict memory instructions
       const memoryInjection = previousContext 
-        ? `\n\n[PREVIOUS CONVERSATION MEMORY]:\n${previousContext}\n\nUse this memory to recognize the user and continue previous topics.` 
+        ? `\n\n[SYSTEM MEMORY DETECTED - DO NOT IGNORE]:\n${previousContext}\n\n[INSTRUCTION]: You MUST acknowledge previous interactions found in the memory above. If the user mentions something from before, recall it.` 
         : "";
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -122,11 +123,13 @@ const LiveUplink: React.FC = () => {
              }
              
              if (message.serverContent?.turnComplete) {
-                 // Trigger a save every turn to be safe
-                 const summary = sessionTranscriptsRef.current.join(" | ");
-                 StorageService.saveLiveMemory(summary);
-                 sessionTranscriptsRef.current = []; // Clear buffer after save to avoid dups
-                 addLog("Turn Complete (Memory Saved).");
+                 // CRITICAL: Save memory on every turn complete to avoid data loss on crash/refresh
+                 const currentSessionLog = sessionTranscriptsRef.current.join(" | ");
+                 if (currentSessionLog.length > 0) {
+                    StorageService.saveLiveMemory(currentSessionLog);
+                    sessionTranscriptsRef.current = []; // Clear local buffer to prevent duplicating history
+                    addLog("Turn Complete. Memory Synced.");
+                 }
              }
           },
           onclose: () => {

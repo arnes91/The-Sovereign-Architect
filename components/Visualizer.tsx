@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { GoogleGenAI } from "@google/genai";
+import { StorageService } from '../services/storageService';
 
 // --- Global Types for API Key Handling ---
 declare global {
@@ -186,6 +187,7 @@ const Visualizer: React.FC = () => {
     if (!canvas) return;
     
     // CRITICAL FIX: preserveDrawingBuffer prevents the canvas from clearing before we draw it to the 2D context
+    // This solves the "Green Screen" issue on some GPUs during capture.
     const gl = canvas.getContext('webgl', { alpha: false, preserveDrawingBuffer: true });
     if (!gl) return;
     glRef.current = gl;
@@ -332,7 +334,18 @@ const Visualizer: React.FC = () => {
       const jsonStr = result.text.replace(/```json/g, '').replace(/```/g, '').trim();
       const parsedLyrics = JSON.parse(jsonStr);
       setLyrics(parsedLyrics);
-      setStatus("DATA_SYNCED");
+      
+      // AUTO-SAVE: Save generated lyrics to Knowledge Base for persistence
+      StorageService.saveKnowledgeItem({
+          id: Date.now().toString(),
+          type: 'NOTE',
+          title: `Lyrics Sync: ${audioFile.name}`,
+          content: JSON.stringify(parsedLyrics, null, 2),
+          tags: ['lyrics', 'visualizer', 'auto-save'],
+          createdAt: Date.now()
+      });
+      
+      setStatus("DATA_SYNCED_AND_SAVED");
 
     } catch (e: any) {
       console.error("AI Error:", e);
@@ -674,33 +687,28 @@ const Visualizer: React.FC = () => {
             source.connect(dest);
 
             if (canvasRef.current) {
-                // FORCE 60 FPS
+                // 1. FORCE 60 FPS LOCK
                 const stream = canvasRef.current.captureStream(60);
                 const track = dest.stream.getAudioTracks()[0];
                 stream.addTrack(track);
 
-                // OPTIMIZED BITRATES (Sweet Spot)
-                const videoBitrate = exportConfig.resolution === '4K' ? 30000000 : 8000000; // 30Mbps / 8Mbps
-                
-                // CRITICAL FIX: Prioritize WEBM/VP9 to avoid Green Screen issues with Canvas capture
-                const types = [
-                    "video/webm;codecs=vp9", 
-                    "video/webm;codecs=vp8", 
-                    "video/webm", 
-                    "video/mp4"
-                ];
-                const selectedType = types.find(t => MediaRecorder.isTypeSupported(t)) || "";
-                
+                // 2. OPTIMIZED BITRATES (The Sweet Spot)
+                // 30Mbps for 4K, 8Mbps for FHD. Prevents blocking artifacts while keeping file size sane.
+                const videoBitrate = exportConfig.resolution === '4K' ? 30000000 : 8000000;
+
                 const options: MediaRecorderOptions = {
                     audioBitsPerSecond: 128000,
                     videoBitsPerSecond: videoBitrate,
-                    mimeType: selectedType
+                    mimeType: 'video/mp4' // 3. Priority: MP4
                 };
                 
-                if (!selectedType) {
-                    console.error("No supported MediaRecorder MimeType found.");
-                    setStatus("ENCODER_ERROR");
-                    return;
+                // 4. SMART FALLBACK SYSTEM
+                if (!MediaRecorder.isTypeSupported(options.mimeType!)) {
+                    console.warn("MP4 not supported, falling back to VP9 WebM");
+                    options.mimeType = 'video/webm;codecs=vp9'; // High Quality WebM
+                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+                        options.mimeType = 'video/webm'; // Vanilla WebM (Last resort)
+                    }
                 }
 
                 const rec = new MediaRecorder(stream, options);
@@ -713,6 +721,7 @@ const Visualizer: React.FC = () => {
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
+                    // Determine extension based on actual mimetype used
                     const ext = options.mimeType?.includes('mp4') ? 'mp4' : 'webm';
                     a.download = `glitch_render_${exportConfig.resolution}.${ext}`;
                     a.click();
