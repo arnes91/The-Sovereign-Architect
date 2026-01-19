@@ -19,7 +19,8 @@ export const PERSONALITIES = {
       DEFAULT: { id: 'default', name: 'Standard Protocol' },
       CREATIVE: { id: 'creative', name: 'Muse Mode' },
       TECHNICAL: { id: 'technical', name: 'System Architect' },
-      STRATEGIC: { id: 'strategic', name: 'Empire Builder' }
+      STRATEGIC: { id: 'strategic', name: 'Empire Builder' },
+      ARZI: { id: 'arzi', name: 'Arzi Assistant' }
     }
   },
 
@@ -79,5 +80,12 @@ export const PERSONALITIES = {
     id: "arzi_music",
     name: "Arzi Assistant",
     role: "Music Industry Strategist",
+  },
+
+  MIKU_GLITCH: {
+    id: "miku_glitch",
+    name: "Miku Vajfuša",
+    role: "System Decay Avatar",
+    voice: "Aoede" // High pitched, fits the anime aesthetic best
   }
 };

@@ -13,6 +13,7 @@ import AICompanion from './components/modules/AICompanion';
 import AIComposer from './components/modules/AIComposer';
 import AnalyticsLab from './components/modules/AnalyticsLab';
 import KnowledgeBase from './components/modules/KnowledgeBase';
+import Visualizer from './components/Visualizer';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(() => {
@@ -44,6 +45,8 @@ const App: React.FC = () => {
         return <ModuleGuard moduleName="Deep Architect"><DeepArchitect /></ModuleGuard>;
       case View.LIVE_UPLINK: 
         return <ModuleGuard moduleName="Live Uplink"><LiveUplink /></ModuleGuard>;
+      case View.VISUALIZER: 
+        return <ModuleGuard moduleName="Visualizer"><Visualizer /></ModuleGuard>;
       default: 
         return <ModuleGuard moduleName="Dashboard"><Dashboard onNavigate={setCurrentView} /></ModuleGuard>;
     }

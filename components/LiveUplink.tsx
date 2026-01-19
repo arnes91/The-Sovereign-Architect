@@ -1,6 +1,9 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { arrayBufferToBase64, decodePCM } from '../services/geminiService';
+import { PROMPT_TEMPLATES } from '../config/promptTemplates';
+import { PERSONALITIES } from '../config/personalities';
 
 const LiveUplink: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
@@ -13,6 +16,7 @@ const LiveUplink: React.FC = () => {
   // Audio Context Refs
   const inputAudioContextRef = useRef<AudioContext | null>(null);
   const outputAudioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
   const nextStartTimeRef = useRef<number>(0);
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
   const rafIdRef = useRef<number | null>(null);
@@ -30,91 +34,31 @@ const LiveUplink: React.FC = () => {
 
   const connect = async () => {
     try {
-      addLog("Initializing Neural Link...");
+      addLog("BOOT SEQUENCE: MIKU_VAJFUŠA.exe");
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
+      // Setup Audio Contexts
       inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Setup Analyser for VISUALIZER (We connect OUTPUT audio here to visualize the AI Speaking)
+      analyserRef.current = outputAudioContextRef.current.createAnalyser();
+      analyserRef.current.fftSize = 256; // High responsiveness
       
-      // Analyzer setup for Visualizer
-      const analyzer = inputAudioContextRef.current.createAnalyser();
-      analyzer.fftSize = 512; // Higher resolution for better visuals
-      analyzer.smoothingTimeConstant = 0.8;
-      const dataArray = new Uint8Array(analyzer.frequencyBinCount);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
       const config = {
         model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         callbacks: {
           onopen: () => {
-            addLog("Connection Established.");
+            addLog("PROTOCOL ACTIVE.");
             setIsConnected(true);
             
-            // Setup Input Stream
+            // Setup Input Stream (Mic -> AI)
             if (!inputAudioContextRef.current) return;
             const source = inputAudioContextRef.current.createMediaStreamSource(stream);
             const scriptProcessor = inputAudioContextRef.current.createScriptProcessor(4096, 1, 1);
             
-            source.connect(analyzer); // Tap for visualizer
-
-            // Start Visualizer Loop
-            const drawVisualizer = () => {
-                if (!visualizerCanvasRef.current) return;
-                const canvas = visualizerCanvasRef.current;
-                const ctx = canvas.getContext('2d');
-                if (!ctx) return;
-
-                rafIdRef.current = requestAnimationFrame(drawVisualizer);
-
-                analyzer.getByteFrequencyData(dataArray);
-                
-                // Clear Canvas
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                
-                const centerX = canvas.width / 2;
-                const centerY = canvas.height / 2;
-                const radius = 50;
-                
-                // 1. Draw Pulsating Core
-                const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, radius - 10 + (average / 5), 0, 2 * Math.PI);
-                ctx.fillStyle = `rgba(0, 255, 65, ${0.1 + (average / 500)})`;
-                ctx.fill();
-                
-                // 2. Draw Radial Frequency Bars
-                const bars = 60; // Number of bars to draw
-                const step = Math.floor(dataArray.length / bars);
-                
-                ctx.beginPath();
-                for (let i = 0; i < bars; i++) {
-                    const value = dataArray[i * step];
-                    const barHeight = (value / 255) * 60; // Max extension
-                    const angle = (i / bars) * 2 * Math.PI;
-                    
-                    // Start point (on circle edge)
-                    const x1 = centerX + Math.cos(angle) * radius;
-                    const y1 = centerY + Math.sin(angle) * radius;
-                    
-                    // End point (extending outwards)
-                    const x2 = centerX + Math.cos(angle) * (radius + barHeight);
-                    const y2 = centerY + Math.sin(angle) * (radius + barHeight);
-                    
-                    ctx.moveTo(x1, y1);
-                    ctx.lineTo(x2, y2);
-                }
-                
-                ctx.lineCap = 'round';
-                ctx.lineWidth = 3;
-                ctx.strokeStyle = '#00ff41';
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = '#00ff41';
-                ctx.stroke();
-                ctx.shadowBlur = 0; // Reset
-            };
-            drawVisualizer();
-
             scriptProcessor.onaudioprocess = (e) => {
               const inputData = e.inputBuffer.getChannelData(0);
               const pcm16 = new Int16Array(inputData.length);
@@ -137,17 +81,23 @@ const LiveUplink: React.FC = () => {
             
             source.connect(scriptProcessor);
             scriptProcessor.connect(inputAudioContextRef.current.destination);
+
+            // Start the Glitch Visualizer
+            startGlitchVisualizer();
           },
           onmessage: async (message: LiveServerMessage) => {
              // Audio Output Handling
              const base64Audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-             if (base64Audio && outputAudioContextRef.current) {
+             if (base64Audio && outputAudioContextRef.current && analyserRef.current) {
                  const ctx = outputAudioContextRef.current;
                  const audioBuffer = decodePCM(base64Audio, ctx, 24000);
                  
                  const source = ctx.createBufferSource();
                  source.buffer = audioBuffer;
-                 source.connect(ctx.destination);
+                 
+                 // Route audio through analyser for visuals, then to speakers
+                 source.connect(analyserRef.current);
+                 analyserRef.current.connect(ctx.destination);
                  
                  const startTime = Math.max(nextStartTimeRef.current, ctx.currentTime);
                  source.start(startTime);
@@ -159,25 +109,20 @@ const LiveUplink: React.FC = () => {
              }
           },
           onclose: () => {
-            addLog("Connection Closed.");
+            addLog("CONNECTION SEVERED.");
             setIsConnected(false);
             if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
           },
           onerror: (e: any) => {
-            addLog(`Error: ${e.message || 'Unknown'}`);
+            addLog(`CRITICAL ERROR: ${e.message || 'Unknown'}`);
           }
         },
         config: {
             responseModalities: [Modality.AUDIO],
             speechConfig: {
-                voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } }
+                voiceConfig: { prebuiltVoiceConfig: { voiceName: PERSONALITIES.MIKU_GLITCH.voice as any } }
             },
-            systemInstruction: `
-              You are The Sovereign Architect. 
-              The user has an ACTIVE VISUAL FEED (Camera). 
-              If the user mentions "looking at" or "see", refer to the visual input stream.
-              Keep responses concise, technical, and helpful.
-            `
+            systemInstruction: PROMPT_TEMPLATES.LIVE_UPLINK_MIKU
         }
       };
 
@@ -187,6 +132,108 @@ const LiveUplink: React.FC = () => {
     } catch (err: any) {
         addLog(`Init Failed: ${err.message}`);
     }
+  };
+
+  const startGlitchVisualizer = () => {
+    if (!visualizerCanvasRef.current || !analyserRef.current) return;
+    const canvas = visualizerCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const analyser = analyserRef.current;
+    if (!ctx) return;
+
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    const COLOR_PRIMARY = '#39c5bb'; // Miku Teal
+    const COLOR_SECONDARY = '#ff00ff'; // Glitch Pink
+
+    const render = () => {
+        rafIdRef.current = requestAnimationFrame(render);
+        
+        // Reset canvas size for full container fill
+        canvas.width = canvas.parentElement?.clientWidth || 300;
+        canvas.height = canvas.parentElement?.clientHeight || 300;
+        const width = canvas.width;
+        const height = canvas.height;
+        const cx = width / 2;
+        const cy = height / 2;
+
+        analyser.getByteFrequencyData(dataArray);
+
+        // Calculate Bass Hit
+        let bass = 0;
+        for(let i=0; i<20; i++) bass += dataArray[i];
+        bass = bass / 20;
+
+        // Clear screen with fade for trails
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.save(); // Save state before glitch transform
+
+        // GLITCH EFFECT on HIGH INTENSITY ONLY
+        // Threshold increased to 140 (out of 255) to stop constant shaking
+        if(bass > 140) { 
+            const shiftX = (Math.random() - 0.5) * 15;
+            const shiftY = (Math.random() - 0.5) * 5;
+            ctx.translate(shiftX, shiftY); // Shake screen
+            
+            // Random glitch rectangles
+            if(Math.random() > 0.8) {
+                 ctx.fillStyle = COLOR_SECONDARY;
+                 ctx.fillRect(Math.random() * width, Math.random() * height, width, 4);
+            }
+            
+            // Color Inversion Flicker
+            if (Math.random() > 0.9) {
+                ctx.globalCompositeOperation = 'difference';
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0,0,width,height);
+                ctx.globalCompositeOperation = 'source-over';
+            }
+        } else {
+            ctx.setTransform(1,0,0,1,0,0); // Reset shake
+        }
+
+        const radius = 80 + (bass * 0.5); // Pulse size
+
+        // Draw Circular Spectrum
+        ctx.beginPath();
+        for (let i = 0; i < bufferLength; i++) {
+            const barHeight = dataArray[i] * 0.8;
+            const angle = (i * 2 * Math.PI) / bufferLength;
+
+            // Mirror logic for perfect circle
+            const x = cx + Math.cos(angle) * (radius + barHeight * 0.5);
+            const y = cy + Math.sin(angle) * (radius + barHeight * 0.5);
+
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+
+        // Style the line
+        ctx.lineWidth = bass > 120 ? 4 : 2;
+        ctx.strokeStyle = bass > 140 ? '#fff' : COLOR_PRIMARY;
+        ctx.shadowBlur = bass > 120 ? 15 : 5;
+        ctx.shadowColor = COLOR_PRIMARY;
+        ctx.stroke();
+
+        // Particles / Digital Rain (Only on drop)
+        if (bass > 130) {
+            for(let k=0; k<2; k++){
+                ctx.fillStyle = Math.random() > 0.5 ? COLOR_PRIMARY : COLOR_SECONDARY;
+                ctx.fillRect(
+                    Math.random() * width,
+                    Math.random() * height,
+                    2 + Math.random() * 3,
+                    2 + Math.random() * 10
+                );
+            }
+        }
+        
+        ctx.restore(); // Restore state
+    };
+    render();
   };
 
   const startCamera = async () => {
@@ -202,8 +249,8 @@ const LiveUplink: React.FC = () => {
                   const ctx = canvasRef.current.getContext('2d');
                   if(!ctx) return;
                   
-                  canvasRef.current.width = videoRef.current.videoWidth / 2; // Downscale for speed
-                  canvasRef.current.height = videoRef.current.videoHeight / 2;
+                  canvasRef.current.width = videoRef.current.videoWidth / 4; // Low res for speed
+                  canvasRef.current.height = videoRef.current.videoHeight / 4;
                   
                   ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
                   
@@ -228,37 +275,40 @@ const LiveUplink: React.FC = () => {
   };
 
   return (
-    <div className="h-full flex flex-col p-6 relative overflow-hidden">
-      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5 pointer-events-none"></div>
+    <div className="h-full flex flex-col p-6 relative overflow-hidden bg-black">
+      {/* Background Matrix/Grid Overlay */}
+      <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 pointer-events-none"></div>
       
       <div className="flex justify-between items-center mb-8 z-10">
-        <h2 className="text-3xl font-sans font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyber-green to-emerald-700">
-          LIVE UPLINK
-        </h2>
-        <div className={`px-3 py-1 rounded-full text-xs font-mono ${isConnected ? 'bg-cyber-green text-black' : 'bg-red-900 text-red-100'}`}>
-          {isConnected ? 'ONLINE' : 'OFFLINE'}
+        <div>
+            <h2 className="text-4xl font-black font-mono text-transparent bg-clip-text bg-gradient-to-r from-[#39c5bb] to-[#ff00ff] tracking-tighter">
+            MIKU VAJFUŠA
+            </h2>
+            <p className="text-[10px] font-mono text-[#39c5bb] tracking-[0.3em]">GLITCH CORE PROTOCOL // v9.1</p>
+        </div>
+        <div className={`px-3 py-1 text-xs font-mono border ${isConnected ? 'border-[#39c5bb] text-[#39c5bb] animate-pulse' : 'border-red-900 text-red-900'}`}>
+          {isConnected ? 'SYSTEM ONLINE' : 'OFFLINE'}
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center z-10 gap-8">
+      <div className="flex-1 flex flex-col items-center justify-center z-10 gap-8 relative">
         
         {/* Interactive Visualizer Canvas */}
-        <div className={`relative flex items-center justify-center transition-all duration-500 ${isConnected ? 'opacity-100 scale-100' : 'opacity-50 scale-95'}`}>
-            <canvas 
+        <div className="relative w-full h-[400px] flex items-center justify-center">
+             <canvas 
                 ref={visualizerCanvasRef} 
-                width={300} 
-                height={300} 
-                className="rounded-full bg-black/50 border border-zinc-800"
-                style={{ 
-                    width: '300px', 
-                    height: '300px',
-                    boxShadow: isConnected ? '0 0 30px rgba(0,255,65,0.1)' : 'none'
-                }}
+                className="w-full h-full"
             />
             
+            {/* Overlay Text inside visualizer */}
             {!isConnected && (
-                <div className="absolute text-zinc-600 font-mono text-sm">
-                    DISCONNECTED
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
+                    <h1 className="text-6xl font-black text-white/10 tracking-widest">WAITING</h1>
+                </div>
+            )}
+             {isConnected && (
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none mix-blend-overlay">
+                    <h1 className="text-8xl font-black text-[#ff00ff]/20 tracking-widest animate-pulse">GLITCH</h1>
                 </div>
             )}
         </div>
@@ -267,31 +317,31 @@ const LiveUplink: React.FC = () => {
         <video ref={videoRef} autoPlay playsInline muted className="hidden" />
         <canvas ref={canvasRef} className="hidden" />
 
-        <div className="w-full max-w-md bg-black/50 border border-zinc-800 p-4 rounded-lg font-mono text-sm h-32 overflow-y-auto">
-             {log.map((l, i) => <div key={i} className="text-emerald-500/80">> {l}</div>)}
-             {log.length === 0 && <span className="text-zinc-600">Waiting for uplink...</span>}
+        <div className="w-full max-w-md bg-black/50 border border-zinc-800 p-4 font-mono text-xs h-32 overflow-y-auto">
+             {log.map((l, i) => <div key={i} className="text-[#39c5bb]">> {l}</div>)}
+             {log.length === 0 && <span className="text-zinc-600 animate-pulse">_Initialize protocol to begin...</span>}
         </div>
 
         <div className="flex gap-4">
             {!isConnected ? (
-                <button onClick={connect} className="bg-cyber-green text-black font-bold px-8 py-3 rounded hover:bg-emerald-400 transition-colors uppercase tracking-widest font-mono">
-                    Initialize Link
+                <button onClick={connect} className="bg-[#39c5bb] text-black font-black px-8 py-3 hover:bg-[#ff00ff] hover:text-white transition-all uppercase tracking-widest font-mono skew-x-[-10deg]">
+                    INITIALIZE CORE
                 </button>
             ) : (
-                <button onClick={() => window.location.reload()} className="bg-red-500 text-black font-bold px-8 py-3 rounded hover:bg-red-400 transition-colors uppercase tracking-widest font-mono">
-                    Terminate
+                <button onClick={() => window.location.reload()} className="bg-red-600 text-black font-black px-8 py-3 hover:bg-red-500 transition-all uppercase tracking-widest font-mono skew-x-[-10deg]">
+                    KILL PROCESS
                 </button>
             )}
             
             {isConnected && !isCameraActive && (
-                <button onClick={startCamera} className="border border-cyber-green text-cyber-green font-bold px-6 py-3 rounded hover:bg-cyber-green/10 transition-colors uppercase font-mono animate-pulse">
-                    Enable Vision Input
+                <button onClick={startCamera} className="border border-[#39c5bb] text-[#39c5bb] font-bold px-6 py-3 hover:bg-[#39c5bb]/10 transition-colors uppercase font-mono skew-x-[-10deg]">
+                    ENABLE VISION
                 </button>
             )}
             
             {isCameraActive && (
-                <div className="text-xs font-mono text-cyber-green mt-2 bg-zinc-900 px-2 py-1 rounded">
-                    CAMERA ACTIVE • STREAMING TO GEMINI
+                <div className="text-xs font-mono text-[#ff00ff] mt-2 bg-zinc-900 px-2 py-1 border border-[#ff00ff] skew-x-[-10deg]">
+                    VISION ACTIVE
                 </div>
             )}
         </div>

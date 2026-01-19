@@ -23,6 +23,7 @@ const AICompanion: React.FC = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [isTalking, setIsTalking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  
   // Use Styles from PromptTemplates? Or keep Personality config for keys?
   // We use Personality Config for Keys/Names, and Templates for text.
   const [activeStyle, setActiveStyle] = useState<keyof typeof PERSONALITIES.AI_COMPANION.styles>('DEFAULT');

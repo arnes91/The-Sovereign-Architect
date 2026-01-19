@@ -21,7 +21,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                 { label: 'NEW CONCEPT', view: View.CONCEPT_STUDIO, color: 'border-cyber-purple text-cyber-purple' },
                 { label: 'POWER SCAN', view: View.DBZ_SCANNER, color: 'border-red-500 text-red-500' },
                 { label: 'STRATEGY', view: View.DEEP_ARCHITECT, color: 'border-white text-white' },
-                { label: 'COMPOSE', view: View.AI_COMPOSER, color: 'border-cyber-green text-cyber-green' },
+                { label: 'VISUALIZER', view: View.VISUALIZER, color: 'border-cyber-green text-cyber-green' },
             ].map((action, i) => (
                 <button
                     key={i}

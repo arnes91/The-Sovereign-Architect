@@ -15,6 +15,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
     { id: View.ANALYTICS_LAB, label: 'ANALYTICS LAB', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
     { id: View.CONCEPT_STUDIO, label: 'CONCEPT STUDIO', icon: 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z' },
     { id: View.AI_COMPOSER, label: 'AI COMPOSER', icon: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3' },
+    { id: View.VISUALIZER, label: 'GLITCH VISUALIZER', icon: 'M4 10h3l3 8 4-12 3 8h3' },
     { id: View.DEEP_ARCHITECT, label: 'STRATEGY NODE', icon: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z' },
     { id: View.LIVE_UPLINK, label: 'LIVE UPLINK', icon: 'M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.536a5 5 0 001.414 1.414m2.828-9.9a9 9 0 012.728 0M12 12a3 3 0 100-6 3 3 0 000 6z' },
   ];
