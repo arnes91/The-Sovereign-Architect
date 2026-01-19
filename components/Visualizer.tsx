@@ -185,7 +185,8 @@ const Visualizer: React.FC = () => {
     const canvas = glCanvasRef.current;
     if (!canvas) return;
     
-    const gl = canvas.getContext('webgl', { alpha: false });
+    // CRITICAL FIX: preserveDrawingBuffer prevents the canvas from clearing before we draw it to the 2D context
+    const gl = canvas.getContext('webgl', { alpha: false, preserveDrawingBuffer: true });
     if (!gl) return;
     glRef.current = gl;
 
@@ -465,6 +466,10 @@ const Visualizer: React.FC = () => {
 
     // 3. MAIN COMPOSITION START
     ctx.save();
+    
+    // CRITICAL FIX: Explicitly fill black to prevent transparency/green screen on export
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, w, h);
 
     // GLOBAL SCREEN SHAKE & ZOOM PULSE (Bass Reaction)
     if (bass > 0.4) {
@@ -676,19 +681,26 @@ const Visualizer: React.FC = () => {
 
                 // OPTIMIZED BITRATES (Sweet Spot)
                 const videoBitrate = exportConfig.resolution === '4K' ? 30000000 : 8000000; // 30Mbps / 8Mbps
-
+                
+                // CRITICAL FIX: Prioritize WEBM/VP9 to avoid Green Screen issues with Canvas capture
+                const types = [
+                    "video/webm;codecs=vp9", 
+                    "video/webm;codecs=vp8", 
+                    "video/webm", 
+                    "video/mp4"
+                ];
+                const selectedType = types.find(t => MediaRecorder.isTypeSupported(t)) || "";
+                
                 const options: MediaRecorderOptions = {
                     audioBitsPerSecond: 128000,
                     videoBitsPerSecond: videoBitrate,
-                    mimeType: 'video/mp4' // Try MP4 first
+                    mimeType: selectedType
                 };
                 
-                if (!MediaRecorder.isTypeSupported(options.mimeType!)) {
-                    console.warn("MP4 not supported, falling back to VP9 WebM");
-                    options.mimeType = 'video/webm;codecs=vp9';
-                    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-                        options.mimeType = 'video/webm'; 
-                    }
+                if (!selectedType) {
+                    console.error("No supported MediaRecorder MimeType found.");
+                    setStatus("ENCODER_ERROR");
+                    return;
                 }
 
                 const rec = new MediaRecorder(stream, options);
@@ -818,7 +830,7 @@ const Visualizer: React.FC = () => {
                                 PREVIEW
                             </button>
                             <button onClick={() => initializeAudio('EXPORT')} className="flex-1 bg-black border-2 border-[#ff00ff] text-[#ff00ff] px-6 py-4 font-black tracking-widest hover:bg-[#ff00ff] hover:text-black transition-all text-xl transform hover:-translate-y-1 shadow-[0_0_15px_#ff00ff]">
-                                RENDER MP4
+                                RENDER VIDEO
                             </button>
                         </div>
                     </div>
