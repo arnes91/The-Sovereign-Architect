@@ -1,9 +1,16 @@
 
 /**
- * Storage Service
- * Handles local persistence for the Sovereign Architect.
+ * Storage Service (CURRENT: LOCAL / FUTURE: SUPABASE)
  * 
- * Data is stored in localStorage to ensure privacy and sovereignty.
+ * CURRENT STATE:
+ * Data is stored in localStorage. This is "Toy Mode". 
+ * It is browser-locked and clears on cache wipe.
+ * 
+ * FUTURE STATE (The Blueprint):
+ * - Auth: Supabase Auth (Google/Email)
+ * - DB: PostgreSQL for User Profiles, Credits.
+ * - Vectors: pgvector for AI Long-Term Memory (The Hippocampus).
+ * - Storage: S3 for generated Images/Videos.
  */
 
 import { KnowledgeItem, DBZScanResult, GeneratedImage, AnalyticsReport } from "../types";

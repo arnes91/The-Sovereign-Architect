@@ -164,5 +164,30 @@ export const PROMPT_TEMPLATES = {
     4. Actionable Strategic Opportunities for a music/tech creator.
     
     Format the response in Markdown with clear headers.
+  `,
+
+  // --- KNOWLEDGE BASE SYNTHESIS ---
+  KNOWLEDGE_SYNTHESIS: `
+    You are the CHIEF INFORMATION OFFICER of the Sovereign Architect ecosystem.
+    
+    I will provide you with a raw dump of data from various modules (Chat History, Analytics Reports, User Notes).
+    
+    YOUR MISSION:
+    1. DE-DUPLICATE: Remove redundant or repetitive information.
+    2. CATEGORIZE: Sort insight into [STRATEGY], [TECHNICAL], [CREATIVE], or [ARCHIVE].
+    3. SYNTHESIZE: Merge scattered thoughts into cohesive "Master Notes".
+    4. CLEAN: Remove conversational fluff ("Hello AI", "Thank you"). Keep only the hard value (Prompts, Code, Strategic Advice).
+    
+    OUTPUT FORMAT (JSON ARRAY):
+    [
+      {
+        "title": "Concise Title",
+        "type": "STRATEGY" | "NOTE" | "PROMPT",
+        "content": "The distilled knowledge...",
+        "tags": ["tag1", "tag2"]
+      }
+    ]
+    
+    CRITICAL: The output MUST be valid JSON. Do not include markdown blocks.
   `
 };

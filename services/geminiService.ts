@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Modality } from "@google/genai";
 import { PERSONALITIES } from '../config/personalities';
 import { PROMPT_TEMPLATES } from '../config/promptTemplates';
@@ -336,6 +337,41 @@ export const streamStrategyChat = async function* (history: any[], newMessage: s
         }
         throw error;
   }
+};
+
+// --- Knowledge Base Synthesis ---
+
+export const synthesizeKnowledgeBase = async (rawDataDump: string) => {
+    return safeApiCall(async () => {
+        const ai = getAI();
+        const prompt = PROMPT_TEMPLATES.KNOWLEDGE_SYNTHESIS;
+        
+        // Truncate to avoid context window explosion, though Pro has 2M context.
+        // Let's be safe with 100k chars for now.
+        const safeData = rawDataDump.substring(0, 100000);
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-pro-preview',
+            contents: `
+                ${prompt}
+                
+                --- RAW DATA DUMP START ---
+                ${safeData}
+                --- RAW DATA DUMP END ---
+            `,
+            config: {
+                responseMimeType: "application/json",
+                thinkingConfig: { thinkingBudget: 16000 }
+            }
+        });
+
+        try {
+            return JSON.parse(response.text || "[]");
+        } catch (e) {
+            console.error("Failed to parse synthesized knowledge JSON", e);
+            return [];
+        }
+    });
 };
 
 // --- AI Composer ---
