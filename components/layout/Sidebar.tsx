@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { View } from '../../types';
 
@@ -9,6 +10,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
   const menu = [
     { id: View.DASHBOARD, label: 'EXECUTIVE', icon: 'M4 6h16M4 12h16m-7 6h7' },
+    { id: View.ADINS_PLAYGROUND, label: "ADIN'S WORLD", icon: 'M13 10V3L4 14h7v7l9-11h-7z' }, // Rocket/Bolt icon reuse
     { id: View.AI_COMPANION, label: 'AI COMPANION', icon: 'M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z' },
     { id: View.KNOWLEDGE_BASE, label: 'KNOWLEDGE BASE', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
     { id: View.DBZ_SCANNER, label: 'DBZ SCANNER', icon: 'M13 10V3L4 14h7v7l9-11h-7z' },

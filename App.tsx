@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { View } from './types';
 import Sidebar from './components/layout/Sidebar';
@@ -15,6 +16,8 @@ import AnalyticsLab from './components/modules/AnalyticsLab';
 import KnowledgeBase from './components/modules/KnowledgeBase';
 import Visualizer from './components/Visualizer';
 import UploadDeck from './components/modules/UploadDeck';
+import AdinsPlayground from './components/modules/AdinsPlayground';
+import ShowcaseController from './components/modules/ShowcaseController';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>(() => {
@@ -26,49 +29,78 @@ const App: React.FC = () => {
     return View.DASHBOARD;
   });
 
+  // DEMO STATE
+  // We separate this from currentView so the Controller persists while changing views
+  const [isDemoMode, setIsDemoMode] = useState(false);
+  const [demoAction, setDemoAction] = useState<string>("");
+
+  const handleNavigate = (view: View) => {
+      if (view === View.SHOWCASE_MODE) {
+          setIsDemoMode(true);
+      } else {
+          setCurrentView(view);
+      }
+  };
+
   const renderView = () => {
     switch (currentView) {
       case View.DASHBOARD: 
-        return <ModuleGuard moduleName="Dashboard"><Dashboard onNavigate={setCurrentView} /></ModuleGuard>;
+        return <ModuleGuard moduleName="Dashboard"><Dashboard onNavigate={handleNavigate} /></ModuleGuard>;
       case View.AI_COMPANION:
-        return <ModuleGuard moduleName="AI Companion"><AICompanion /></ModuleGuard>;
+        return <ModuleGuard moduleName="AI Companion"><AICompanion demoTrigger={demoAction} /></ModuleGuard>;
       case View.DBZ_SCANNER: 
         return <ModuleGuard moduleName="DBZ Scanner"><DBZScanner /></ModuleGuard>;
       case View.CONCEPT_STUDIO: 
-        return <ModuleGuard moduleName="Concept Studio"><ConceptStudio /></ModuleGuard>;
+        return <ModuleGuard moduleName="Concept Studio"><ConceptStudio demoTrigger={demoAction} /></ModuleGuard>;
       case View.AI_COMPOSER: 
         return <ModuleGuard moduleName="AI Composer"><AIComposer /></ModuleGuard>;
       case View.ANALYTICS_LAB: 
-        return <ModuleGuard moduleName="Analytics Lab"><AnalyticsLab /></ModuleGuard>;
+        return <ModuleGuard moduleName="Analytics Lab"><AnalyticsLab demoTrigger={demoAction} /></ModuleGuard>;
       case View.KNOWLEDGE_BASE: 
         return <ModuleGuard moduleName="Knowledge Base"><KnowledgeBase /></ModuleGuard>;
       case View.DEEP_ARCHITECT: 
-        return <ModuleGuard moduleName="Deep Architect"><DeepArchitect /></ModuleGuard>;
+        return <ModuleGuard moduleName="Deep Architect"><DeepArchitect demoTrigger={demoAction} /></ModuleGuard>;
       case View.LIVE_UPLINK: 
         return <ModuleGuard moduleName="Live Uplink"><LiveUplink /></ModuleGuard>;
       case View.VISUALIZER: 
         return <ModuleGuard moduleName="Visualizer"><Visualizer /></ModuleGuard>;
       case View.UPLOAD_DECK: 
         return <ModuleGuard moduleName="Upload Deck"><UploadDeck /></ModuleGuard>;
+      case View.ADINS_PLAYGROUND:
+        return <ModuleGuard moduleName="Adin's Playground"><AdinsPlayground /></ModuleGuard>;
       default: 
-        return <ModuleGuard moduleName="Dashboard"><Dashboard onNavigate={setCurrentView} /></ModuleGuard>;
+        return <ModuleGuard moduleName="Dashboard"><Dashboard onNavigate={handleNavigate} /></ModuleGuard>;
     }
   };
 
   return (
     <div className="flex h-screen w-screen bg-black text-white font-sans overflow-hidden">
-      <Sidebar currentView={currentView} setView={setCurrentView} />
+      <Sidebar currentView={currentView} setView={handleNavigate} />
       
+      {/* SHOWCASE CONTROLLER OVERLAY */}
+      {/* This now sits ON TOP of the app and persists regardless of currentView */}
+      {isDemoMode && (
+          <ShowcaseController 
+              onViewChange={(v) => setCurrentView(v)} 
+              onActionTrigger={(a) => setDemoAction(a)}
+              onExit={() => {
+                  setIsDemoMode(false);
+                  setCurrentView(View.DASHBOARD);
+                  setDemoAction("");
+              }}
+          />
+      )}
+
       <main className="flex-1 h-full bg-zinc-950 relative flex flex-col">
         {/* Mobile Header */}
         <div className="md:hidden p-4 border-b border-zinc-800 flex justify-between items-center bg-black shrink-0">
              <span className="font-bold text-white">BRZI.AI</span>
              <select 
                 value={currentView} 
-                onChange={(e) => setCurrentView(e.target.value as View)}
+                onChange={(e) => handleNavigate(e.target.value as View)}
                 className="bg-zinc-900 text-xs p-2 rounded border border-zinc-700"
              >
-                 {Object.values(View).map(v => <option key={v} value={v}>{v}</option>)}
+                 {Object.values(View).filter(v => v !== View.SHOWCASE_MODE).map(v => <option key={v} value={v}>{v}</option>)}
              </select>
         </div>
 

@@ -13,7 +13,11 @@ interface Message {
   timestamp: string;
 }
 
-const AICompanion: React.FC = () => {
+interface AICompanionProps {
+    demoTrigger?: string;
+}
+
+const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
   const [messages, setMessages] = useState<Message[]>(() => StorageService.getChatHistory());
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -34,6 +38,23 @@ const AICompanion: React.FC = () => {
   useEffect(() => {
       StorageService.saveChatHistory(messages);
   }, [messages]);
+
+  // --- DEMO TRIGGER ---
+  useEffect(() => {
+      if (demoTrigger === 'SIMULATE_COMPANION' && !isStreaming) {
+          const demoMsg = "Identify top 3 tasks to improve my Spotify algorithm reach today.";
+          let i = 0;
+          setInput("");
+          const typeInt = setInterval(() => {
+              setInput(prev => prev + demoMsg.charAt(i));
+              i++;
+              if (i >= demoMsg.length) {
+                  clearInterval(typeInt);
+                  setTimeout(() => handleSend(true), 500);
+              }
+          }, 30);
+      }
+  }, [demoTrigger]);
 
   const clearHistory = () => {
       if(confirm("Clear chat memory?")) {
@@ -65,20 +86,40 @@ const AICompanion: React.FC = () => {
     }
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || isStreaming) return;
+  const handleSend = async (isDemo = false) => {
+    const textToSend = isDemo ? "Identify top 3 tasks to improve my Spotify algorithm reach today." : input;
+    
+    if (!textToSend.trim() || isStreaming) return;
 
     const newMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input,
+      content: textToSend,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
     setMessages(prev => [...prev, newMessage]);
-    const currentInput = input;
     setInput('');
     setIsStreaming(true);
+
+    // DEMO BYPASS
+    if (isDemo) {
+        setTimeout(() => {
+             const demoResponse = `Here is your optimal playlist strategy:
+1. **Metadata Update:** Rename your top playlist to "High Energy Coding 2024".
+2. **Frequency:** Release 2 Short-form videos using the "Balkan Phonk" sound.
+3. **Engagement:** Reply to the first 10 comments on your latest video within 1 hour.`;
+             
+             setMessages(prev => [...prev, {
+                id: (Date.now() + 1).toString(),
+                role: 'model',
+                content: demoResponse,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            }]);
+            setIsStreaming(false);
+        }, 1500);
+        return;
+    }
 
     try {
         const apiHistory = messages.map(m => ({
@@ -97,7 +138,7 @@ const AICompanion: React.FC = () => {
 
         const stream = streamStrategyChat(
             apiHistory, 
-            currentInput, 
+            textToSend, 
             'STANDARD', 
             systemInstruction
         );
@@ -243,7 +284,7 @@ const AICompanion: React.FC = () => {
             disabled={isStreaming}
           />
           <button 
-            onClick={handleSend}
+            onClick={() => handleSend()}
             disabled={isStreaming || !input.trim()}
             className={`p-3 rounded-md transition-colors ${
                 input.trim() && !isStreaming 

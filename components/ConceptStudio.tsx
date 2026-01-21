@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { ImageGenerator } from './modules/studio/ImageGenerator';
 import { ImageEditor } from './modules/studio/ImageEditor';
 import { ContentAnalyzer } from './modules/studio/ContentAnalyzer';
@@ -6,16 +7,24 @@ import { Icon } from './modules/studio/Icon';
 
 type Tool = 'image-gen' | 'image-edit' | 'analyze';
 
+interface ConceptStudioProps {
+    demoTrigger?: string;
+}
+
 const toolConfig = {
     'image-gen': { label: 'Image Generation', icon: 'image', component: ImageGenerator },
     'image-edit': { label: 'Image Editor', icon: 'edit', component: ImageEditor },
     'analyze': { label: 'Content Analyzer', icon: 'analyze', component: ContentAnalyzer },
 };
 
-const ConceptStudio: React.FC = () => {
+const ConceptStudio: React.FC<ConceptStudioProps> = ({ demoTrigger }) => {
     const [activeTool, setActiveTool] = useState<Tool>('image-gen');
 
     const ActiveComponent = toolConfig[activeTool].component;
+
+    // Pass demoTrigger down to the active component if it supports it
+    // For this prototype, we'll assume ImageGenerator handles the demo
+    const componentProps = activeTool === 'image-gen' ? { demoTrigger } : {};
 
     return (
         <div className="flex flex-col h-full p-6">
@@ -40,7 +49,7 @@ const ConceptStudio: React.FC = () => {
             </div>
             
             <div className="flex-grow bg-gray-800 rounded-xl p-6 overflow-hidden">
-                <ActiveComponent />
+                <ActiveComponent {...componentProps} />
             </div>
         </div>
     );

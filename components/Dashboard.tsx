@@ -63,9 +63,18 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
 
         {/* Blueprint Access */}
         <div className="border-t border-zinc-800 pt-8">
-            <div className="flex items-center gap-4 mb-6">
-                 <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                 <h2 className="text-xl font-bold text-white">STRATEGIC ROADMAP</h2>
+            <div className="flex items-center justify-between mb-6">
+                 <div className="flex items-center gap-4">
+                     <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                     <h2 className="text-xl font-bold text-white">STRATEGIC ROADMAP</h2>
+                 </div>
+                 <button 
+                    onClick={() => onNavigate?.(View.SHOWCASE_MODE)}
+                    className="flex items-center gap-2 px-4 py-2 border border-blue-500/50 text-blue-400 rounded hover:bg-blue-500 hover:text-white transition-colors font-mono text-xs uppercase"
+                 >
+                     <span className="w-2 h-2 bg-blue-400 rounded-full animate-ping"></span>
+                     Launch Demo Mode
+                 </button>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

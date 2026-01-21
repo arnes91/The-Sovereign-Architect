@@ -24,6 +24,13 @@ export const PERSONALITIES = {
     }
   },
 
+  ROBO_BUDDY: {
+      id: "robo_buddy",
+      name: "Robo-Buddy",
+      role: "Adin's Best Friend",
+      voice: "Puck" // High energy, fun voice
+  },
+
   // DBZ SCANNER PERSONAS (Spec V2.0 - Extended Roster)
   DBZ_SCANNER: {
     id: "power_scanner",

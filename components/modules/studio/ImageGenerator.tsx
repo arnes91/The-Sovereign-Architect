@@ -16,7 +16,11 @@ const STYLES = [
     { label: 'Oil Painting', value: ', oil painting style, textured brushstrokes, classical composition' }
 ];
 
-export const ImageGenerator: React.FC = () => {
+interface ImageGeneratorProps {
+    demoTrigger?: string;
+}
+
+export const ImageGenerator: React.FC<ImageGeneratorProps> = ({ demoTrigger }) => {
     const [prompt, setPrompt] = useState('An abstract, futuristic album cover art, neon geometric shapes colliding with organic, flowing lines, deep space background, vibrant colors of indigo and magenta. For an electronic music artist.');
     const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
     const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -26,9 +30,23 @@ export const ImageGenerator: React.FC = () => {
     const [history, setHistory] = useState<GeneratedImage[]>(() => StorageService.getGeneratedImages());
 
     useEffect(() => {
-        // Refresh history when view is toggled or component mounts
         setHistory(StorageService.getGeneratedImages());
     }, [showHistory]);
+
+    // --- DEMO EFFECT ---
+    useEffect(() => {
+        if (demoTrigger === 'SIMULATE_GEN' && !loading) {
+            setLoading(true);
+            setPrompt("A futuristic cityscape of Sarajevo, cyberpunk style, neon lights, flying cars, high detail 8k render");
+            
+            // Fake loading for 2s then show a placeholder result
+            setTimeout(() => {
+                setLoading(false);
+                // Use a reliable placeholder or base64 string if available, for now just a cool placeholder
+                setImageUrl("https://image.pollinations.ai/prompt/cyberpunk%20sarajevo%20neon%20lights%20futuristic?width=512&height=512&nologo=true"); 
+            }, 3500);
+        }
+    }, [demoTrigger]);
 
     const handleGenerate = async () => {
         if (!prompt) return;

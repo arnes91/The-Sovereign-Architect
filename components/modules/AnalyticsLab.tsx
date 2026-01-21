@@ -12,7 +12,11 @@ interface UploadedFile {
     type: 'CSV' | 'JSON' | 'TSV';
 }
 
-const AnalyticsLab: React.FC = () => {
+interface AnalyticsLabProps {
+    demoTrigger?: string;
+}
+
+const AnalyticsLab: React.FC<AnalyticsLabProps> = ({ demoTrigger }) => {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [status, setStatus] = useState<'IDLE' | 'FETCHING' | 'ANALYZING' | 'DONE'>('IDLE');
@@ -23,6 +27,29 @@ const AnalyticsLab: React.FC = () => {
   useEffect(() => {
       setReports(StorageService.getAnalyticsReports());
   }, [showHistory]);
+
+  // --- DEMO EFFECT ---
+  useEffect(() => {
+      if (demoTrigger === 'SIMULATE_UPLOAD' && status === 'IDLE') {
+          setStatus('FETCHING');
+          
+          // 1. Simulate Upload
+          setTimeout(() => {
+              const mockData = JSON.stringify({
+                  spotify: { monthly_listeners: 125000, top_track: "Cyber Balkan", streams: 450000 },
+                  youtube: { subscribers: 8500, views_last_28_days: 120000 }
+              }, null, 2);
+              
+              setFiles([{ name: 'LIVE_DATA_PACKET.json', content: mockData, type: 'JSON' }]);
+              setStatus('IDLE');
+              
+              // 2. Trigger Analysis automatically
+              setTimeout(() => {
+                  executeAnalysis(true); // Pass flag to skip empty check if needed or just rely on state
+              }, 1000);
+          }, 1000);
+      }
+  }, [demoTrigger]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files) {
@@ -73,11 +100,30 @@ const AnalyticsLab: React.FC = () => {
       }
   };
 
-  const executeAnalysis = async () => {
-      if (files.length === 0) return;
+  const executeAnalysis = async (isDemo = false) => {
+      if (files.length === 0 && !isDemo) return;
       setStatus('ANALYZING');
       
       try {
+          // DEMO BYPASS
+          if (isDemo) {
+              setTimeout(() => {
+                  const demoResult = `
+### 🚀 Strategic Analysis Report
+
+**Correlation Found:**
+High correlation between *YouTube Shorts* views and *Spotify* surges. 
+
+**Growth Opportunities:**
+1. **Leverage "Cyber Balkan" Track:** Data suggests this track drives 40% of new user acquisition. Create a remix pack.
+2. **Platform Arbitrage:** Your YouTube engagement is 3x higher than industry average. funnel this traffic to Spotify via pinned comments.
+                  `;
+                  setAnalysis(demoResult);
+                  setStatus('DONE');
+              }, 2500);
+              return;
+          }
+
           // Merge contexts
           let combinedContext = `Analyzing ${files.length} Data Sources:\n\n`;
           files.forEach((f, i) => {
@@ -110,10 +156,6 @@ const AnalyticsLab: React.FC = () => {
   };
 
   const loadReport = (id: string) => {
-      // In a real app, we'd store the full analysis text. 
-      // For this prototype, we are just listing them. 
-      // Assuming we want to re-run or view summary.
-      // Let's delete for now to manage list.
       if(confirm("Delete this report record?")) {
           StorageService.deleteAnalyticsReport(id);
           setReports(StorageService.getAnalyticsReports());
@@ -179,7 +221,7 @@ const AnalyticsLab: React.FC = () => {
                       </div>
 
                       <button 
-                        onClick={executeAnalysis}
+                        onClick={() => executeAnalysis(false)}
                         disabled={files.length === 0 || status === 'ANALYZING' || status === 'FETCHING'}
                         className="w-full bg-zinc-100 hover:bg-white text-black font-bold py-3 rounded uppercase tracking-widest font-mono disabled:opacity-50"
                       >

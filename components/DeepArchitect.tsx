@@ -1,9 +1,14 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { streamStrategyChat } from '../services/geminiService';
 import { GroundingMetadata } from '../types';
 import ReactMarkdown from 'react-markdown';
 
-const DeepArchitect: React.FC = () => {
+interface DeepArchitectProps {
+    demoTrigger?: string; // New prop for demo mode
+}
+
+const DeepArchitect: React.FC<DeepArchitectProps> = ({ demoTrigger }) => {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<any[]>([]);
   const [mode, setMode] = useState<'THINKING' | 'SEARCH' | 'FAST'>('THINKING');
@@ -16,6 +21,31 @@ const DeepArchitect: React.FC = () => {
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   useEffect(scrollToBottom, [messages]);
+
+  // --- DEMO MODE EFFECT ---
+  useEffect(() => {
+      if (demoTrigger === 'SIMULATE_CHAT' && !isStreaming) {
+          const demoPrompt = "Analyze the current viral potential of AI wrapper apps in the Balkan market.";
+          let charIndex = 0;
+          
+          setMessages([]); // Clear previous
+          
+          const typeInterval = setInterval(() => {
+              if (charIndex < demoPrompt.length) {
+                  setInput(prev => prev + demoPrompt.charAt(charIndex));
+                  charIndex++;
+              } else {
+                  clearInterval(typeInterval);
+                  // Simulate send after typing
+                  setTimeout(() => {
+                      sendMessage(demoPrompt);
+                  }, 500);
+              }
+          }, 30); // Typing speed
+          
+          return () => clearInterval(typeInterval);
+      }
+  }, [demoTrigger]);
 
   useEffect(() => {
     // Init Speech Recognition if available
@@ -53,13 +83,38 @@ const DeepArchitect: React.FC = () => {
       }
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || isStreaming) return;
+  const sendMessage = async (overrideInput?: string) => {
+    const textToSend = overrideInput || input;
+    if (!textToSend.trim() || isStreaming) return;
 
-    const userMsg = { role: 'user', content: input };
+    const userMsg = { role: 'user', content: textToSend };
     setMessages(prev => [...prev, { ...userMsg, type: 'user' }]);
     setInput('');
     setIsStreaming(true);
+
+    // If simulating, fake the response for reliability and speed during demo
+    if (demoTrigger === 'SIMULATE_CHAT') {
+        setTimeout(() => {
+             setMessages(prev => [...prev, { role: 'model', content: '', type: 'model', isThinking: true }]);
+             
+             const fakeResponse = "Analysis Complete.\n\n**Market Opportunity:** High.\n**Trend:** Micro-SaaS AI wrappers are seeing 300% growth in EU emerging markets.\n**Strategy:** Leverage 'Brzi Arzi' brand for localized distribution. Focus on low-latency voice interaction.";
+             let i = 0;
+             const streamInt = setInterval(() => {
+                 setMessages(prev => {
+                    const newArr = [...prev];
+                    newArr[newArr.length - 1].content = fakeResponse.substring(0, i);
+                    newArr[newArr.length - 1].isThinking = false;
+                    return newArr;
+                 });
+                 i++;
+                 if (i > fakeResponse.length) {
+                     clearInterval(streamInt);
+                     setIsStreaming(false);
+                 }
+             }, 20);
+        }, 1000);
+        return;
+    }
 
     const apiHistory = messages.map(m => ({ role: m.role, parts: [{ text: m.content }] }));
 
@@ -185,7 +240,7 @@ const DeepArchitect: React.FC = () => {
             disabled={isStreaming}
         />
         <button 
-            onClick={sendMessage}
+            onClick={() => sendMessage()}
             disabled={isStreaming}
             className="bg-zinc-800 hover:bg-zinc-700 text-white p-4 rounded-lg flex items-center justify-center disabled:opacity-50 min-w-[3.5rem]"
         >

@@ -11,10 +11,13 @@ interface ModuleGuardState {
 }
 
 export class ModuleGuard extends React.Component<ModuleGuardProps, ModuleGuardState> {
-  public state: ModuleGuardState = {
-    hasError: false,
-    error: null,
-  };
+  constructor(props: ModuleGuardProps) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null,
+    };
+  }
 
   static getDerivedStateFromError(error: Error): ModuleGuardState {
     return { hasError: true, error };
@@ -41,7 +44,7 @@ export class ModuleGuard extends React.Component<ModuleGuardProps, ModuleGuardSt
             {isRegionError ? (
                 <div className="text-zinc-300">
                     <p className="mb-4 font-bold text-yellow-500">ACCESS DENIED: 403 Forbidden</p>
-                    <p>The AI Model requested by this module is currently geofenced and unavailable in your region (e.g., EU/UK/Canada).</p>
+                    <p>The AI Model requested by this module is currently geofenced and unavailable in your geographic location (e.g., EU/UK/Canada).</p>
                     <p className="mt-4 text-xs text-zinc-500">ERROR: {this.state.error?.message}</p>
                 </div>
             ) : (
