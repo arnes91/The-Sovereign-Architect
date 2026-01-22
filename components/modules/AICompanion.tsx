@@ -24,7 +24,8 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
   const [isTalking, setIsTalking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [activeStyle, setActiveStyle] = useState<keyof typeof PERSONALITIES.AI_COMPANION.styles>('DEFAULT');
-  
+  const [memoryContext, setMemoryContext] = useState<string>("");
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
@@ -33,6 +34,15 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
   };
 
   useEffect(scrollToBottom, [messages, isStreaming]);
+
+  // LOAD MEMORY ON MOUNT
+  useEffect(() => {
+      const ltm = StorageService.getLongTermMemory();
+      if (ltm.length > 0) {
+          console.log("Injecting Long Term Memory:", ltm);
+          setMemoryContext(ltm.join("\n"));
+      }
+  }, []);
 
   // SAVE TO STORAGE ON CHANGE
   useEffect(() => {
@@ -57,9 +67,10 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
   }, [demoTrigger]);
 
   const clearHistory = () => {
-      if(confirm("Clear chat memory?")) {
+      if(confirm("Wipe ALL Chat Memory (Short & Long Term)?")) {
           setMessages([]);
-          StorageService.saveChatHistory([]);
+          StorageService.clearLongTermMemory();
+          setMemoryContext("");
       }
   };
 
@@ -129,9 +140,15 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
 
         const styleName = PERSONALITIES.AI_COMPANION.styles[activeStyle].name;
         const styleInstruction = PROMPT_TEMPLATES.AI_COMPANION_STYLES[activeStyle];
+        
+        // MEMORY INJECTION
+        const memoryInjection = memoryContext 
+            ? `\n\n[LONG TERM MEMORY RECALL]:\nThe user has previously discussed the following. Use this context if relevant:\n${memoryContext}` 
+            : "";
 
         const systemInstruction = `
           ${PROMPT_TEMPLATES.AI_COMPANION_CORE}
+          ${memoryInjection}
           --- CURRENT INTERACTION MODE: ${styleName} ---
           ${styleInstruction}
         `;
@@ -200,6 +217,13 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
                      </span>
                 )}
             </div>
+            {memoryContext && (
+                <div className="mt-2 flex items-center gap-2">
+                    <span className="text-[10px] bg-indigo-900/50 text-indigo-300 border border-indigo-700 px-2 py-0.5 rounded font-mono">
+                        🧠 LONG TERM MEMORY ACTIVE
+                    </span>
+                </div>
+            )}
         </div>
         <div className="flex items-center gap-3">
              <div className="relative">
@@ -219,7 +243,7 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
              <button 
                 onClick={clearHistory}
                 className="p-2 rounded bg-zinc-900 border border-zinc-700 text-zinc-500 hover:text-white"
-                title="Clear History"
+                title="Wipe Memory"
              >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
              </button>

@@ -1,16 +1,7 @@
 
 /**
- * Storage Service (CURRENT: LOCAL / FUTURE: SUPABASE)
- * 
- * CURRENT STATE:
- * Data is stored in localStorage. This is "Toy Mode". 
- * It is browser-locked and clears on cache wipe.
- * 
- * FUTURE STATE (The Blueprint):
- * - Auth: Supabase Auth (Google/Email)
- * - DB: PostgreSQL for User Profiles, Credits.
- * - Vectors: pgvector for AI Long-Term Memory (The Hippocampus).
- * - Storage: S3 for generated Images/Videos.
+ * Storage Service
+ * Handles Local Persistence and Simulated Vector Memory
  */
 
 import { KnowledgeItem, DBZScanResult, GeneratedImage, AnalyticsReport } from "../types";
@@ -21,8 +12,9 @@ const KEYS = {
     IMAGE_HISTORY: 'brzi_image_history',
     ANALYTICS_HISTORY: 'brzi_analytics_history',
     SETTINGS: 'brzi_settings',
-    LIVE_MEMORY: 'brzi_live_uplink_memory', // New: Miku's Memory
-    CHAT_HISTORY: 'brzi_ai_companion_chat'
+    LIVE_MEMORY: 'brzi_live_uplink_memory', 
+    CHAT_HISTORY: 'brzi_ai_companion_chat',
+    LONG_TERM_MEMORY: 'brzi_long_term_vector_sim' // NEW: Vector Sim
 };
 
 export const StorageService = {
@@ -49,7 +41,7 @@ export const StorageService = {
     // --- DBZ History ---
     saveScan: (scan: DBZScanResult) => {
         const current = StorageService.getScans();
-        const updated = [scan, ...current].slice(0, 50); // Increased limit
+        const updated = [scan, ...current].slice(0, 50); 
         localStorage.setItem(KEYS.DBZ_HISTORY, JSON.stringify(updated));
     },
 
@@ -63,13 +55,11 @@ export const StorageService = {
     // --- Image History ---
     saveGeneratedImage: (item: GeneratedImage) => {
         const current = StorageService.getGeneratedImages();
-        // Limit to 20 images to manage localstorage quota
         const updated = [item, ...current].slice(0, 20); 
         try {
             localStorage.setItem(KEYS.IMAGE_HISTORY, JSON.stringify(updated));
         } catch (e) {
-            console.error("Storage Quota Exceeded. Could not save image history.");
-            // Try to make space by removing oldest
+            console.error("Storage Quota Exceeded");
             if (current.length > 5) {
                  const smaller = [item, ...current.slice(0, 5)];
                  localStorage.setItem(KEYS.IMAGE_HISTORY, JSON.stringify(smaller));
@@ -84,7 +74,7 @@ export const StorageService = {
         } catch (e) { return []; }
     },
 
-    // --- Analytics History ---
+    // --- Analytics ---
     saveAnalyticsReport: (report: AnalyticsReport) => {
         const current = StorageService.getAnalyticsReports();
         const updated = [report, ...current];
@@ -104,11 +94,9 @@ export const StorageService = {
         localStorage.setItem(KEYS.ANALYTICS_HISTORY, JSON.stringify(updated));
     },
 
-    // --- LIVE UPLINK MEMORY (NEW) ---
+    // --- LIVE UPLINK MEMORY ---
     saveLiveMemory: (summary: string) => {
-        // Append new summary to existing memory
         const current = StorageService.getLiveMemory();
-        // Keep a rolling context of last ~2000 chars to avoid token limits
         const updated = (current + "\n" + summary).slice(-2000);
         localStorage.setItem(KEYS.LIVE_MEMORY, updated);
     },
@@ -121,9 +109,13 @@ export const StorageService = {
         localStorage.removeItem(KEYS.LIVE_MEMORY);
     },
 
-    // --- CHAT COMPANION HISTORY ---
+    // --- CHAT COMPANION & LONG TERM MEMORY ---
     saveChatHistory: (messages: any[]) => {
         localStorage.setItem(KEYS.CHAT_HISTORY, JSON.stringify(messages));
+        // Trigger consolidation if history gets too long (Simulating Background Agent)
+        if (messages.length > 10 && messages.length % 5 === 0) {
+            StorageService.consolidateMemory(messages);
+        }
     },
 
     getChatHistory: (): any[] => {
@@ -131,5 +123,40 @@ export const StorageService = {
             const data = localStorage.getItem(KEYS.CHAT_HISTORY);
             return data ? JSON.parse(data) : [];
         } catch (e) { return []; }
+    },
+
+    /**
+     * SIMULATED VECTOR MEMORY (The "Singularity" Step)
+     * Takes recent chats, extracts keywords/topics, and stores them in a separate "LTM" buffer.
+     * This mimics how a Vector DB would retrieve "Relevant Context" on a new session.
+     */
+    consolidateMemory: (messages: any[]) => {
+        try {
+            // Get last few user messages
+            const recentUserMsgs = messages.filter(m => m.role === 'user').slice(-3).map(m => m.content).join(" | ");
+            if (!recentUserMsgs) return;
+
+            // Simple heuristic summary (In real app, this would be an AI call)
+            const summary = `[${new Date().toLocaleDateString()}] User discussed: ${recentUserMsgs.substring(0, 100)}...`;
+            
+            const currentLTM = StorageService.getLongTermMemory();
+            const updatedLTM = [summary, ...currentLTM].slice(0, 10); // Keep last 10 'core memories'
+            
+            localStorage.setItem(KEYS.LONG_TERM_MEMORY, JSON.stringify(updatedLTM));
+        } catch (e) {
+            console.error("LTM Consolidation Failed", e);
+        }
+    },
+
+    getLongTermMemory: (): string[] => {
+        try {
+            const data = localStorage.getItem(KEYS.LONG_TERM_MEMORY);
+            return data ? JSON.parse(data) : [];
+        } catch (e) { return []; }
+    },
+
+    clearLongTermMemory: () => {
+        localStorage.removeItem(KEYS.LONG_TERM_MEMORY);
+        localStorage.removeItem(KEYS.CHAT_HISTORY);
     }
 };

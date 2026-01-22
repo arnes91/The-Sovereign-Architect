@@ -11,12 +11,13 @@ interface ModuleGuardState {
 }
 
 export class ModuleGuard extends React.Component<ModuleGuardProps, ModuleGuardState> {
+  public state: ModuleGuardState = {
+    hasError: false,
+    error: null,
+  };
+
   constructor(props: ModuleGuardProps) {
     super(props);
-    this.state = {
-      hasError: false,
-      error: null,
-    };
   }
 
   static getDerivedStateFromError(error: Error): ModuleGuardState {
