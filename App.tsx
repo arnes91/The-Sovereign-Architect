@@ -1,8 +1,10 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View } from './types';
 import Sidebar from './components/layout/Sidebar';
 import { ModuleGuard } from './components/core/ModuleGuard';
+import { Auth } from './components/Auth';
+import { supabase } from './services/supabaseClient';
 
 // Module Imports
 import Dashboard from './components/Dashboard';
@@ -19,7 +21,34 @@ import UploadDeck from './components/modules/UploadDeck';
 import AdinsPlayground from './components/modules/AdinsPlayground';
 import ShowcaseController from './components/modules/ShowcaseController';
 
+const isSupabaseConfigured = () => {
+    return import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder.supabase.co';
+};
+
 const App: React.FC = () => {
+  const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) {
+        setLoading(false);
+        return;
+    }
+    
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   const [currentView, setCurrentView] = useState<View>(() => {
     // Deep Linking Check
     if (typeof window !== 'undefined') {
@@ -72,6 +101,14 @@ const App: React.FC = () => {
         return <ModuleGuard moduleName="Dashboard"><Dashboard onNavigate={handleNavigate} /></ModuleGuard>;
     }
   };
+
+  if (loading) {
+      return <div className="h-screen w-screen bg-black flex items-center justify-center text-white">INITIALIZING SOVEREIGN CORE...</div>;
+  }
+
+  if (isSupabaseConfigured() && !session) {
+      return <Auth onLogin={() => {}} />;
+  }
 
   return (
     <div className="flex h-screen w-screen bg-black text-white font-sans overflow-hidden">
