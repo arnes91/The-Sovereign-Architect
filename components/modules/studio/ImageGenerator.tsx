@@ -27,10 +27,10 @@ export const ImageGenerator: React.FC<ImageGeneratorProps> = ({ demoTrigger }) =
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showHistory, setShowHistory] = useState(false);
-    const [history, setHistory] = useState<GeneratedImage[]>(() => StorageService.getGeneratedImages());
+    const [history, setHistory] = useState<GeneratedImage[]>([]);
 
     useEffect(() => {
-        setHistory(StorageService.getGeneratedImages());
+        StorageService.getGeneratedImages().then(setHistory);
     }, [showHistory]);
 
     // --- DEMO EFFECT ---
@@ -70,8 +70,8 @@ export const ImageGenerator: React.FC<ImageGeneratorProps> = ({ demoTrigger }) =
                 aspectRatio,
                 timestamp: Date.now()
             };
-            StorageService.saveGeneratedImage(newItem);
-            setHistory(StorageService.getGeneratedImages()); // Update local state immediately
+            await StorageService.saveGeneratedImage(newItem);
+            setHistory(await StorageService.getGeneratedImages()); // Update local state immediately
 
         } catch (err: any) {
             setError(err.message || 'Failed to generate image.');

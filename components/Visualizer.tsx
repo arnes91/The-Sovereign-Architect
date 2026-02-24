@@ -247,7 +247,7 @@ const Visualizer: React.FC = () => {
       const jsonStr = result.text.replace(/```json/g, '').replace(/```/g, '').trim();
       const parsedLyrics = JSON.parse(jsonStr);
       setLyrics(parsedLyrics);
-      StorageService.saveKnowledgeItem({
+      await StorageService.saveKnowledgeItem({
           id: Date.now().toString(), type: 'NOTE', title: `Lyrics Sync: ${audioFile.name}`,
           content: JSON.stringify(parsedLyrics, null, 2), tags: ['lyrics', 'visualizer', 'auto-save'], createdAt: Date.now()
       });

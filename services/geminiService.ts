@@ -192,6 +192,17 @@ export const editImage = async (base64Image: string, mimeType: string, prompt: s
     });
 };
 
+export const generateEmbedding = async (text: string) => {
+    return safeApiCall(async () => {
+        const ai = getAI();
+        const response = await ai.models.embedContent({
+            model: 'text-embedding-004',
+            contents: text,
+        });
+        return response.embeddings?.[0]?.values || [];
+    });
+};
+
 // --- Content Analyzer & Analytics Lab ---
 
 export const analyzeDataFile = async (content: string, fileName: string) => {

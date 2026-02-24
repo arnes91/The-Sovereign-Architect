@@ -156,7 +156,7 @@ const DBZScanner: React.FC = () => {
           const base64Img = canvasRef.current.toDataURL('image/jpeg', 0.7);
           setScannedImage(base64Img);
 
-          const stats = await HumeService.simulateScan();
+          const stats = await HumeService.simulateScan(base64Img);
           const { power, battleClass, multiplier } = HumeService.calculatePowerLevel(stats);
           
           setCurrentStats(stats);
@@ -179,7 +179,7 @@ const DBZScanner: React.FC = () => {
           const updatedUser = GamificationService.addXp(150);
           setUser(updatedUser);
 
-          StorageService.saveScan({
+          await StorageService.saveScan({
               id: Date.now().toString(),
               timestamp: Date.now(),
               power,
@@ -301,14 +301,19 @@ Get scanned at Brzi.AI
       </div>
   );
 
-  const HistoryView = () => (
+  const HistoryView = () => {
+      const [scans, setScans] = useState<DBZScanResult[]>([]);
+      useEffect(() => {
+          StorageService.getScans().then(setScans);
+      }, []);
+      return (
       <div className="h-full bg-black p-4 overflow-y-auto">
           <div className="flex justify-between items-center mb-6">
                  <h2 className="text-white font-bold text-xl">SCAN LOG</h2>
                  <button onClick={() => setViewState('HUD')} className="text-xs text-cyber-green font-mono">CLOSE</button>
           </div>
           <div className="space-y-4">
-              {StorageService.getScans().map(h => (
+              {scans.map(h => (
                   <div key={h.id} className="flex gap-4 bg-zinc-900 p-3 rounded border border-zinc-800">
                       {h.imageUrl && <img src={h.imageUrl} className="w-16 h-16 object-cover rounded bg-zinc-800" />}
                       <div className="flex-1">
@@ -323,7 +328,8 @@ Get scanned at Brzi.AI
               ))}
           </div>
       </div>
-  );
+      );
+  };
 
   // --- HUD RENDER ---
   if (viewState === 'PROFILE') return <ProfileView />;

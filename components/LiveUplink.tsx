@@ -33,8 +33,9 @@ const LiveUplink: React.FC = () => {
       // SAVE MEMORY ON EXIT
       if (sessionTranscriptsRef.current.length > 0) {
           const summary = "Session Log: " + sessionTranscriptsRef.current.join(" | ");
-          StorageService.saveLiveMemory(summary);
-          console.log("Memory Saved on Exit.");
+          StorageService.saveLiveMemory(summary).then(() => {
+              console.log("Memory Saved on Exit.");
+          });
       }
 
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
@@ -48,7 +49,7 @@ const LiveUplink: React.FC = () => {
       addLog("BOOT SEQUENCE: MIKU_VAJFUŠA.exe");
       addLog("LOADING LTM (Long Term Memory)...");
       
-      const previousContext = StorageService.getLiveMemory();
+      const previousContext = await StorageService.getLiveMemory();
       // Inject strict memory instructions
       const memoryInjection = previousContext 
         ? `\n\n[SYSTEM MEMORY DETECTED - DO NOT IGNORE]:\n${previousContext}\n\n[INSTRUCTION]: You MUST acknowledge previous interactions found in the memory above. If the user mentions something from before, recall it.` 
@@ -278,9 +279,9 @@ const LiveUplink: React.FC = () => {
       }
   };
 
-  const clearMemory = () => {
+  const clearMemory = async () => {
       if(confirm("Wipe Miku's Memory? She will forget everything.")) {
-          StorageService.clearLiveMemory();
+          await StorageService.clearLiveMemory();
           addLog("MEMORY PURGED.");
       }
   };
@@ -325,7 +326,7 @@ const LiveUplink: React.FC = () => {
         <canvas ref={canvasRef} className="hidden" />
 
         <div className="w-full max-w-md bg-black/50 border border-zinc-800 p-4 font-mono text-xs h-32 overflow-y-auto">
-             {log.map((l, i) => <div key={i} className="text-[#39c5bb]">> {l}</div>)}
+             {log.map((l, i) => <div key={i} className="text-[#39c5bb]">{">"} {l}</div>)}
              {log.length === 0 && <span className="text-zinc-600 animate-pulse">_Initialize protocol to begin...</span>}
         </div>
 

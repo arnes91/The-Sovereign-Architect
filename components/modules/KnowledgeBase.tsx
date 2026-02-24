@@ -6,7 +6,7 @@ import { synthesizeKnowledgeBase } from '../../services/geminiService';
 
 const KnowledgeBase: React.FC = () => {
   // Initialize from storage synchronously to prevent empty flash/loss
-  const [items, setItems] = useState<KnowledgeItem[]>(() => StorageService.getKnowledgeItems());
+  const [items, setItems] = useState<KnowledgeItem[]>([]);
   const [view, setView] = useState<'LIST' | 'CREATE' | 'SYNTHESIS_MODE'>('LIST');
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<'ALL' | 'PROMPT' | 'STRATEGY' | 'NOTE'>('ALL');
@@ -23,7 +23,7 @@ const KnowledgeBase: React.FC = () => {
 
   // Reload when component mounts just in case
   useEffect(() => {
-    setItems(StorageService.getKnowledgeItems());
+    StorageService.getKnowledgeItems().then(setItems);
   }, []);
 
   const filteredItems = items.filter(item => {
@@ -33,7 +33,7 @@ const KnowledgeBase: React.FC = () => {
       return matchesType && matchesSearch;
   });
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!title || !content) return;
     const newItem: KnowledgeItem = {
       id: Date.now().toString(),
@@ -43,17 +43,17 @@ const KnowledgeBase: React.FC = () => {
       tags: [],
       createdAt: Date.now()
     };
-    StorageService.saveKnowledgeItem(newItem);
-    setItems(StorageService.getKnowledgeItems()); // Update local state immediately
+    await StorageService.saveKnowledgeItem(newItem);
+    setItems(await StorageService.getKnowledgeItems()); // Update local state immediately
     setView('LIST');
     setTitle('');
     setContent('');
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
       if(confirm("Permanently delete this knowledge node?")) {
-          StorageService.deleteKnowledgeItem(id);
-          setItems(StorageService.getKnowledgeItems());
+          await StorageService.deleteKnowledgeItem(id);
+          setItems(await StorageService.getKnowledgeItems());
       }
   };
 
@@ -80,9 +80,9 @@ const KnowledgeBase: React.FC = () => {
       try {
           // 1. Gather Data
           setSynthesisProgress(30);
-          const chats = StorageService.getChatHistory();
-          const reports = StorageService.getAnalyticsReports();
-          const existingNotes = StorageService.getKnowledgeItems().map(i => `[${i.type}] ${i.title}: ${i.content}`);
+          const chats = await StorageService.getChatHistory();
+          const reports = await StorageService.getAnalyticsReports();
+          const existingNotes = (await StorageService.getKnowledgeItems()).map(i => `[${i.type}] ${i.title}: ${i.content}`);
           
           const rawDump = JSON.stringify({
               recentChats: chats.slice(-50), // Last 50 messages
@@ -98,9 +98,9 @@ const KnowledgeBase: React.FC = () => {
           setSynthesisProgress(90);
           let count = 0;
           if (Array.isArray(synthesizedData)) {
-              synthesizedData.forEach((item: any) => {
+              for (const item of synthesizedData) {
                   if (item.title && item.content) {
-                      StorageService.saveKnowledgeItem({
+                      await StorageService.saveKnowledgeItem({
                           id: Date.now().toString() + Math.random(),
                           type: item.type || 'STRATEGY',
                           title: `[SYNTH] ${item.title}`,
@@ -110,10 +110,10 @@ const KnowledgeBase: React.FC = () => {
                       });
                       count++;
                   }
-              });
+              }
           }
           
-          setItems(StorageService.getKnowledgeItems());
+          setItems(await StorageService.getKnowledgeItems());
           alert(`SYNTHESIS COMPLETE.\n${count} new Knowledge Nodes created.`);
           
       } catch (e: any) {

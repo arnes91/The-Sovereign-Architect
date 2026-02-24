@@ -18,7 +18,7 @@ interface AICompanionProps {
 }
 
 const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
-  const [messages, setMessages] = useState<Message[]>(() => StorageService.getChatHistory());
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [isTalking, setIsTalking] = useState(false);
@@ -37,16 +37,20 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
 
   // LOAD MEMORY ON MOUNT
   useEffect(() => {
-      const ltm = StorageService.getLongTermMemory();
-      if (ltm.length > 0) {
-          console.log("Injecting Long Term Memory:", ltm);
-          setMemoryContext(ltm.join("\n"));
-      }
+      StorageService.getChatHistory().then(setMessages);
+      StorageService.getRelevantMemories().then(ltm => {
+          if (ltm.length > 0) {
+              console.log("Injecting Long Term Memory:", ltm);
+              setMemoryContext(ltm.join("\n"));
+          }
+      });
   }, []);
 
   // SAVE TO STORAGE ON CHANGE
   useEffect(() => {
-      StorageService.saveChatHistory(messages);
+      if (messages.length > 0) {
+          StorageService.saveChatHistory(messages);
+      }
   }, [messages]);
 
   // --- DEMO TRIGGER ---
@@ -66,10 +70,10 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
       }
   }, [demoTrigger]);
 
-  const clearHistory = () => {
+  const clearHistory = async () => {
       if(confirm("Wipe ALL Chat Memory (Short & Long Term)?")) {
           setMessages([]);
-          StorageService.clearLongTermMemory();
+          await StorageService.clearLongTermMemory();
           setMemoryContext("");
       }
   };

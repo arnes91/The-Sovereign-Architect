@@ -21,11 +21,11 @@ const AnalyticsLab: React.FC<AnalyticsLabProps> = ({ demoTrigger }) => {
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [status, setStatus] = useState<'IDLE' | 'FETCHING' | 'ANALYZING' | 'DONE'>('IDLE');
   const [showHistory, setShowHistory] = useState(false);
-  const [reports, setReports] = useState<AnalyticsReport[]>(StorageService.getAnalyticsReports());
+  const [reports, setReports] = useState<AnalyticsReport[]>([]);
 
   // Reload history on mount/view toggle
   useEffect(() => {
-      setReports(StorageService.getAnalyticsReports());
+      StorageService.getAnalyticsReports().then(setReports);
   }, [showHistory]);
 
   // --- DEMO EFFECT ---
@@ -145,8 +145,8 @@ High correlation between *YouTube Shorts* views and *Spotify* surges.
               summary: result?.substring(0, 100) + "..." || "",
               tags: files.map(f => f.type)
           };
-          StorageService.saveAnalyticsReport(newReport);
-          setReports(StorageService.getAnalyticsReports());
+          await StorageService.saveAnalyticsReport(newReport);
+          setReports(await StorageService.getAnalyticsReports());
 
       } catch (e) {
           console.error(e);
@@ -155,10 +155,10 @@ High correlation between *YouTube Shorts* views and *Spotify* surges.
       }
   };
 
-  const loadReport = (id: string) => {
+  const loadReport = async (id: string) => {
       if(confirm("Delete this report record?")) {
-          StorageService.deleteAnalyticsReport(id);
-          setReports(StorageService.getAnalyticsReports());
+          await StorageService.deleteAnalyticsReport(id);
+          setReports(await StorageService.getAnalyticsReports());
       }
   };
 
