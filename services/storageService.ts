@@ -7,6 +7,7 @@
 import { KnowledgeItem, DBZScanResult, GeneratedImage, AnalyticsReport } from "../types";
 import { supabase } from "./supabaseClient";
 import { generateEmbedding } from "./geminiService";
+import { get, set } from 'idb-keyval';
 
 const KEYS = {
     KNOWLEDGE_BASE: 'brzi_knowledge_base',
@@ -52,7 +53,7 @@ export const StorageService = {
         // Fallback
         const current = await StorageService.getKnowledgeItems();
         const updated = [item, ...current];
-        localStorage.setItem(KEYS.KNOWLEDGE_BASE, JSON.stringify(updated));
+        await set(KEYS.KNOWLEDGE_BASE, updated);
     },
 
     getKnowledgeItems: async (): Promise<KnowledgeItem[]> => {
@@ -76,8 +77,8 @@ export const StorageService = {
         }
         // Fallback
         try {
-            const data = localStorage.getItem(KEYS.KNOWLEDGE_BASE);
-            return data ? JSON.parse(data) : [];
+            const data = await get(KEYS.KNOWLEDGE_BASE);
+            return data || [];
         } catch (e) { return []; }
     },
 
@@ -94,7 +95,7 @@ export const StorageService = {
         // Fallback
         const current = await StorageService.getKnowledgeItems();
         const updated = current.filter(i => i.id !== id);
-        localStorage.setItem(KEYS.KNOWLEDGE_BASE, JSON.stringify(updated));
+        await set(KEYS.KNOWLEDGE_BASE, updated);
     },
 
     // --- DBZ History ---
@@ -117,7 +118,7 @@ export const StorageService = {
         // Fallback
         const current = await StorageService.getScans();
         const updated = [scan, ...current].slice(0, 50); 
-        localStorage.setItem(KEYS.DBZ_HISTORY, JSON.stringify(updated));
+        await set(KEYS.DBZ_HISTORY, updated);
     },
 
     getScans: async (): Promise<DBZScanResult[]> => {
@@ -134,8 +135,8 @@ export const StorageService = {
         }
         // Fallback
         try {
-            const data = localStorage.getItem(KEYS.DBZ_HISTORY);
-            return data ? JSON.parse(data) : [];
+            const data = await get(KEYS.DBZ_HISTORY);
+            return data || [];
         } catch (e) { return []; }
     },
 
@@ -169,14 +170,11 @@ export const StorageService = {
         }
         // Fallback
         const current = await StorageService.getGeneratedImages();
-        const updated = [item, ...current].slice(0, 20); 
+        const updated = [item, ...current].slice(0, 50); 
         try {
-            localStorage.setItem(KEYS.IMAGE_HISTORY, JSON.stringify(updated));
+            await set(KEYS.IMAGE_HISTORY, updated);
         } catch (e) {
-            if (current.length > 5) {
-                 const smaller = [item, ...current.slice(0, 5)];
-                 localStorage.setItem(KEYS.IMAGE_HISTORY, JSON.stringify(smaller));
-            }
+            console.error("Failed to save image history to idb", e);
         }
     },
 
@@ -200,8 +198,8 @@ export const StorageService = {
         }
         // Fallback
         try {
-            const data = localStorage.getItem(KEYS.IMAGE_HISTORY);
-            return data ? JSON.parse(data) : [];
+            const data = await get(KEYS.IMAGE_HISTORY);
+            return data || [];
         } catch (e) { return []; }
     },
 
@@ -224,7 +222,7 @@ export const StorageService = {
         // Fallback
         const current = await StorageService.getAnalyticsReports();
         const updated = [report, ...current];
-        localStorage.setItem(KEYS.ANALYTICS_HISTORY, JSON.stringify(updated));
+        await set(KEYS.ANALYTICS_HISTORY, updated);
     },
 
     getAnalyticsReports: async (): Promise<AnalyticsReport[]> => {
@@ -241,8 +239,8 @@ export const StorageService = {
         }
         // Fallback
         try {
-            const data = localStorage.getItem(KEYS.ANALYTICS_HISTORY);
-            return data ? JSON.parse(data) : [];
+            const data = await get(KEYS.ANALYTICS_HISTORY);
+            return data || [];
         } catch (e) { return []; }
     },
     
@@ -260,7 +258,7 @@ export const StorageService = {
         // Fallback
         const current = await StorageService.getAnalyticsReports();
         const updated = current.filter(r => r.id !== id);
-        localStorage.setItem(KEYS.ANALYTICS_HISTORY, JSON.stringify(updated));
+        await set(KEYS.ANALYTICS_HISTORY, updated);
     },
 
     // --- RELEASES (DISTROKID PIPELINE) ---
@@ -282,7 +280,7 @@ export const StorageService = {
         // Fallback
         const current = await StorageService.getReleaseData();
         const updated = [release, ...current];
-        localStorage.setItem('brzi_releases', JSON.stringify(updated));
+        await set('brzi_releases', updated);
     },
 
     getReleaseData: async (): Promise<any[]> => {
@@ -299,8 +297,8 @@ export const StorageService = {
         }
         // Fallback
         try {
-            const data = localStorage.getItem('brzi_releases');
-            return data ? JSON.parse(data) : [];
+            const data = await get('brzi_releases');
+            return data || [];
         } catch (e) { return []; }
     },
 
@@ -324,7 +322,7 @@ export const StorageService = {
             } catch (e) { console.error("Supabase error:", e); }
         }
         // Fallback
-        localStorage.setItem(KEYS.LIVE_MEMORY, updated);
+        await set(KEYS.LIVE_MEMORY, updated);
     },
 
     getLiveMemory: async (): Promise<string> => {
@@ -398,7 +396,7 @@ export const StorageService = {
             } catch (e) { console.error("Supabase error:", e); }
         }
         // Fallback
-        localStorage.setItem(KEYS.CHAT_HISTORY, JSON.stringify(messages));
+        await set(KEYS.CHAT_HISTORY, messages);
         
         // Trigger consolidation if history gets too long
         if (messages.length > 10 && messages.length % 5 === 0) {
@@ -418,8 +416,8 @@ export const StorageService = {
         }
         // Fallback
         try {
-            const data = localStorage.getItem(KEYS.CHAT_HISTORY);
-            return data ? JSON.parse(data) : [];
+            const data = await get(KEYS.CHAT_HISTORY);
+            return data || [];
         } catch (e) { return []; }
     },
 
@@ -446,7 +444,7 @@ export const StorageService = {
             // Fallback
             const currentLTM = await StorageService.getRelevantMemories();
             const updatedLTM = [summary, ...currentLTM].slice(0, 10);
-            localStorage.setItem(KEYS.LONG_TERM_MEMORY, JSON.stringify(updatedLTM));
+            await set(KEYS.LONG_TERM_MEMORY, updatedLTM);
         } catch (e) {
             console.error("LTM Consolidation Failed", e);
         }
@@ -476,8 +474,8 @@ export const StorageService = {
         }
         // Fallback
         try {
-            const data = localStorage.getItem(KEYS.LONG_TERM_MEMORY);
-            return data ? JSON.parse(data) : [];
+            const data = await get(KEYS.LONG_TERM_MEMORY);
+            return data || [];
         } catch (e) { return []; }
     },
 
