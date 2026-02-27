@@ -1,8 +1,9 @@
 # Project Status & Changelog
 
 ## 🟢 What's Working Fully
-1. **Visualizer Export**: Fixed the WebGL buffer issue by adding `preserveDrawingBuffer: true` and a 1-second warmup delay before `captureStream`. Video export now works reliably in full HD vertical format.
-2. **Persistent Storage (Supabase + Local Fallback)**: The `StorageService` has been completely overhauled to use the new `app` schema in Supabase.
+1. **DistroKid Pipeline (NEW)**: Completely overhauled the `UploadDeck` into a fully automated DistroKid Release Pipeline. It takes a raw audio file, uses Gemini 3.1 Pro (Multimodal + Search Grounding) to analyze the audio and current trends, and outputs optimized metadata (Title, Genres, Language, Description) and a 3000x3000 Cover Art Image (via Gemini 3.1 Flash Image). Data is saved to Supabase for A/B testing and future analytics.
+2. **Visualizer Export**: Fixed the WebGL buffer issue by adding `preserveDrawingBuffer: true` and a 1-second warmup delay before `captureStream`. Video export now works reliably in full HD vertical format.
+3. **Persistent Storage (Supabase + Local Fallback)**: The `StorageService` has been completely overhauled to use the new `app` schema in Supabase.
    - **Authentication**: Added a simple `Auth` component to handle user sign-up and sign-in. All data is now securely scoped to the authenticated user using `owner_id = auth.uid()`.
    - **Schema Integration**: Successfully integrated all tables (`knowledge_base`, `dbz_history`, `image_history`, `analytics_history`, `live_memory`, `chat_sessions`, `chat_history`, `long_term_memory`).
    - **Hybrid Mode**: If Supabase is not configured or an error occurs, it seamlessly falls back to `localStorage`.

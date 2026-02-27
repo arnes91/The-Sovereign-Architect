@@ -6,7 +6,8 @@ import { GeneratedImage } from '../../../types';
 import { Icon } from './Icon';
 import { LoadingSpinner } from './LoadingSpinner';
 
-type AspectRatio = "1:1" | "3:4" | "4:3" | "9:16" | "16:9";
+type AspectRatio = "1:1" | "3:4" | "4:3" | "9:16" | "16:9" | "2:3" | "3:2" | "21:9" | "1:4" | "1:8" | "4:1" | "8:1";
+type ImageSize = "1K" | "2K" | "4K";
 
 const STYLES = [
     { label: 'Cyberpunk', value: ', cyberpunk style, neon lights, high contrast, futuristic' },
@@ -23,6 +24,7 @@ interface ImageGeneratorProps {
 export const ImageGenerator: React.FC<ImageGeneratorProps> = ({ demoTrigger }) => {
     const [prompt, setPrompt] = useState('An abstract, futuristic album cover art, neon geometric shapes colliding with organic, flowing lines, deep space background, vibrant colors of indigo and magenta. For an electronic music artist.');
     const [aspectRatio, setAspectRatio] = useState<AspectRatio>('1:1');
+    const [imageSize, setImageSize] = useState<ImageSize>('1K');
     const [imageUrl, setImageUrl] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -56,7 +58,7 @@ export const ImageGenerator: React.FC<ImageGeneratorProps> = ({ demoTrigger }) =
         setShowHistory(false);
 
         try {
-            const base64Image = await generateImage(prompt, aspectRatio);
+            const base64Image = await generateImage(prompt, aspectRatio, imageSize);
             if (!base64Image) throw new Error("No image returned");
             
             const finalUrl = `data:image/jpeg;base64,${base64Image}`;
@@ -134,14 +136,29 @@ export const ImageGenerator: React.FC<ImageGeneratorProps> = ({ demoTrigger }) =
 
                 <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">Aspect Ratio</label>
-                    <div className="grid grid-cols-3 gap-2">
-                        {(["1:1", "3:4", "4:3", "9:16", "16:9"] as AspectRatio[]).map(ar => (
+                    <div className="grid grid-cols-4 gap-2">
+                        {(["1:1", "3:4", "4:3", "9:16", "16:9", "2:3", "3:2", "21:9"] as AspectRatio[]).map(ar => (
                             <button
                                 key={ar}
                                 onClick={() => setAspectRatio(ar)}
-                                className={`px-3 py-2 text-sm rounded-md transition-colors ${aspectRatio === ar ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'}`}
+                                className={`px-2 py-1 text-xs rounded-md transition-colors ${aspectRatio === ar ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'}`}
                             >
                                 {ar}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Image Size</label>
+                    <div className="grid grid-cols-3 gap-2">
+                        {(["1K", "2K", "4K"] as ImageSize[]).map(size => (
+                            <button
+                                key={size}
+                                onClick={() => setImageSize(size)}
+                                className={`px-3 py-2 text-sm rounded-md transition-colors ${imageSize === size ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'}`}
+                            >
+                                {size}
                             </button>
                         ))}
                     </div>

@@ -4,7 +4,16 @@ import { PERSONALITIES } from '../config/personalities';
 import { PROMPT_TEMPLATES } from '../config/promptTemplates';
 import { HumeService } from './humeService';
 
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
+const getAI = () => new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+const getPaidAI = async () => {
+    // @ts-ignore
+    if (window.aistudio && !await window.aistudio.hasSelectedApiKey()) {
+        // @ts-ignore
+        await window.aistudio.openSelectKey();
+    }
+    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+};
 
 // --- Helpers ---
 
@@ -135,17 +144,18 @@ export const generateSpeech = async (text: string, voiceName: string) => {
 
 // --- Concept Studio (Image Gen/Edit) ---
 
-export const generateImage = async (prompt: string, aspectRatio: string = "1:1") => {
+export const generateImage = async (prompt: string, aspectRatio: string = "1:1", imageSize: string = "1K") => {
     return safeApiCall(async () => {
-        const ai = getAI();
+        const ai = await getPaidAI();
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
+            model: 'gemini-3.1-flash-image-preview',
             contents: {
                 parts: [{ text: prompt }],
             },
             config: {
                 imageConfig: {
                     aspectRatio: aspectRatio as any,
+                    imageSize: imageSize as any
                 },
             },
         });
@@ -159,6 +169,44 @@ export const generateImage = async (prompt: string, aspectRatio: string = "1:1")
             }
         }
         return null;
+    });
+};
+
+export const generateVideo = async (prompt: string, aspectRatio: string = "16:9", imageBase64?: string, imageMimeType?: string) => {
+    return safeApiCall(async () => {
+        const ai = await getPaidAI();
+        
+        const params: any = {
+            model: 'veo-3.1-fast-generate-preview',
+            config: {
+                numberOfVideos: 1,
+                resolution: '720p',
+                aspectRatio: aspectRatio as any
+            }
+        };
+
+        if (prompt) {
+            params.prompt = prompt;
+        }
+
+        if (imageBase64 && imageMimeType) {
+            params.image = {
+                imageBytes: imageBase64,
+                mimeType: imageMimeType
+            };
+        }
+
+        let operation = await ai.models.generateVideos(params);
+
+        while (!operation.done) {
+            await new Promise(resolve => setTimeout(resolve, 10000));
+            operation = await ai.operations.getVideosOperation({operation: operation});
+        }
+
+        const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+        if (!downloadLink) return null;
+
+        return downloadLink;
     });
 };
 
@@ -213,7 +261,7 @@ export const analyzeDataFile = async (content: string, fileName: string) => {
         const safeContent = content.length > 500000 ? content.substring(0, 500000) + "\n...[TRUNCATED]" : content;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
+            model: 'gemini-3.1-pro-preview',
             contents: `
                 ${prompt}
                 
@@ -222,7 +270,7 @@ export const analyzeDataFile = async (content: string, fileName: string) => {
                 --- DATA END ---
             `,
             config: {
-                thinkingConfig: { thinkingBudget: 16000 }
+                thinkingConfig: { thinkingLevel: 1 } // ThinkingLevel.HIGH
             }
         });
         
@@ -234,7 +282,7 @@ export const analyzeImage = async (prompt: string, image: { data: string, mimeTy
     return safeApiCall(async () => {
         const ai = getAI();
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-3.1-pro-preview',
             contents: {
                 parts: [
                     { inlineData: { data: image.data, mimeType: image.mimeType } },
@@ -250,7 +298,7 @@ export const analyzeVideo = async (prompt: string, video: { data: string, mimeTy
     return safeApiCall(async () => {
         const ai = getAI();
         const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-3.1-pro-preview',
             contents: {
                 parts: [
                     { inlineData: { data: video.data, mimeType: video.mimeType } },
@@ -266,7 +314,7 @@ export const transcribeAudio = async (prompt: string, audio: { data: string, mim
     return safeApiCall(async () => {
         const ai = getAI();
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+            model: 'gemini-3-flash-preview',
             contents: {
                 parts: [
                     { inlineData: { data: audio.data, mimeType: audio.mimeType } },
@@ -282,7 +330,7 @@ export const complexAnalysis = async (prompt: string, media: { data: string, mim
     return safeApiCall(async () => {
         const ai = getAI();
         const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
+            model: 'gemini-3.1-pro-preview',
             contents: {
                 parts: [
                     { inlineData: { data: media.data, mimeType: media.mimeType } },
@@ -290,7 +338,7 @@ export const complexAnalysis = async (prompt: string, media: { data: string, mim
                 ]
             },
             config: {
-                thinkingConfig: { thinkingBudget: 16000 }
+                thinkingConfig: { thinkingLevel: 1 } // ThinkingLevel.HIGH
             }
         });
         return response.text || "Analysis failed.";
@@ -307,9 +355,9 @@ export const streamStrategyChat = async function* (history: any[], newMessage: s
   let config: any = {};
   
   if (mode === 'THINKING') {
-      model = 'gemini-3-pro-preview';
+      model = 'gemini-3.1-pro-preview';
       config = {
-          thinkingConfig: { thinkingBudget: 16000 }
+          thinkingConfig: { thinkingLevel: 1 } // ThinkingLevel.HIGH
       };
   } else if (mode === 'SEARCH') {
       model = 'gemini-3-flash-preview';
@@ -317,7 +365,7 @@ export const streamStrategyChat = async function* (history: any[], newMessage: s
           tools: [{ googleSearch: {} }]
       };
   } else if (mode === 'FAST') {
-      model = 'gemini-flash-lite-latest';
+      model = 'gemini-2.5-flash-lite';
   } else if (mode === 'STANDARD') {
       model = 'gemini-3-flash-preview';
   }
@@ -362,7 +410,7 @@ export const synthesizeKnowledgeBase = async (rawDataDump: string) => {
         const safeData = rawDataDump.substring(0, 100000);
 
         const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-preview',
+            model: 'gemini-3.1-pro-preview',
             contents: `
                 ${prompt}
                 
@@ -372,7 +420,7 @@ export const synthesizeKnowledgeBase = async (rawDataDump: string) => {
             `,
             config: {
                 responseMimeType: "application/json",
-                thinkingConfig: { thinkingBudget: 16000 }
+                thinkingConfig: { thinkingLevel: 1 } // ThinkingLevel.HIGH
             }
         });
 

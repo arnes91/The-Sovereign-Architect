@@ -18,6 +18,7 @@ import AnalyticsLab from './components/modules/AnalyticsLab';
 import KnowledgeBase from './components/modules/KnowledgeBase';
 import Visualizer from './components/Visualizer';
 import UploadDeck from './components/modules/UploadDeck';
+import YouTubePipeline from './components/modules/YouTubePipeline';
 import AdinsPlayground from './components/modules/AdinsPlayground';
 import ShowcaseController from './components/modules/ShowcaseController';
 
@@ -94,7 +95,9 @@ const App: React.FC = () => {
       case View.VISUALIZER: 
         return <ModuleGuard moduleName="Visualizer"><Visualizer /></ModuleGuard>;
       case View.UPLOAD_DECK: 
-        return <ModuleGuard moduleName="Upload Deck"><UploadDeck /></ModuleGuard>;
+        return <ModuleGuard moduleName="DistroKid Pipeline"><UploadDeck /></ModuleGuard>;
+      case View.YOUTUBE_PIPELINE: 
+        return <ModuleGuard moduleName="YouTube Pipeline"><YouTubePipeline /></ModuleGuard>;
       case View.ADINS_PLAYGROUND:
         return <ModuleGuard moduleName="Adin's Playground"><AdinsPlayground /></ModuleGuard>;
       default: 

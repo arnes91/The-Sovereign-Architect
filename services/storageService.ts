@@ -263,6 +263,47 @@ export const StorageService = {
         localStorage.setItem(KEYS.ANALYTICS_HISTORY, JSON.stringify(updated));
     },
 
+    // --- RELEASES (DISTROKID PIPELINE) ---
+    saveReleaseData: async (release: any) => {
+        if (isSupabaseConfigured()) {
+            try {
+                const owner_id = await getOwnerId();
+                if (owner_id) {
+                    const { error } = await supabase.from('analytics_history').insert([{
+                        owner_id,
+                        event_name: 'song_release_prepared',
+                        properties: release,
+                        created_at: new Date().toISOString()
+                    }]);
+                    if (!error) return;
+                }
+            } catch (e) { console.error("Supabase error:", e); }
+        }
+        // Fallback
+        const current = await StorageService.getReleaseData();
+        const updated = [release, ...current];
+        localStorage.setItem('brzi_releases', JSON.stringify(updated));
+    },
+
+    getReleaseData: async (): Promise<any[]> => {
+        if (isSupabaseConfigured()) {
+            try {
+                const owner_id = await getOwnerId();
+                if (owner_id) {
+                    const { data, error } = await supabase.from('analytics_history').select('*').eq('owner_id', owner_id).eq('event_name', 'song_release_prepared').order('created_at', { ascending: false });
+                    if (!error && data) {
+                        return data.map(d => d.properties);
+                    }
+                }
+            } catch (e) { console.error("Supabase error:", e); }
+        }
+        // Fallback
+        try {
+            const data = localStorage.getItem('brzi_releases');
+            return data ? JSON.parse(data) : [];
+        } catch (e) { return []; }
+    },
+
     // --- LIVE UPLINK MEMORY ---
     saveLiveMemory: async (summary: string) => {
         const current = await StorageService.getLiveMemory();

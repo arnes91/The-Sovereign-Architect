@@ -3,9 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { ImageGenerator } from './modules/studio/ImageGenerator';
 import { ImageEditor } from './modules/studio/ImageEditor';
 import { ContentAnalyzer } from './modules/studio/ContentAnalyzer';
+import { VideoGenerator } from './modules/studio/VideoGenerator';
 import { Icon } from './modules/studio/Icon';
 
-type Tool = 'image-gen' | 'image-edit' | 'analyze';
+type Tool = 'image-gen' | 'image-edit' | 'analyze' | 'video-gen';
 
 interface ConceptStudioProps {
     demoTrigger?: string;
@@ -14,6 +15,7 @@ interface ConceptStudioProps {
 const toolConfig = {
     'image-gen': { label: 'Image Generation', icon: 'image', component: ImageGenerator },
     'image-edit': { label: 'Image Editor', icon: 'edit', component: ImageEditor },
+    'video-gen': { label: 'Video Generation', icon: 'video', component: VideoGenerator },
     'analyze': { label: 'Content Analyzer', icon: 'analyze', component: ContentAnalyzer },
 };
 
