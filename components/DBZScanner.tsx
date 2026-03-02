@@ -20,6 +20,7 @@ const DBZScanner: React.FC = () => {
   const [currentBattleClass, setCurrentBattleClass] = useState<string>('');
   const [currentMultiplier, setCurrentMultiplier] = useState<number>(1);
   const [scannedImage, setScannedImage] = useState<string | null>(null);
+  const [currentAudio, setCurrentAudio] = useState<string | null>(null);
 
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -173,7 +174,10 @@ const DBZScanner: React.FC = () => {
           setCurrentTaunt(text);
 
           const audioB64 = await generateSpeech(text, persona.voice);
-          if (audioB64) playAudio(audioB64);
+          if (audioB64) {
+              setCurrentAudio(audioB64);
+              playAudio(audioB64);
+          }
 
           GamificationService.consumeEnergy();
           const updatedUser = GamificationService.addXp(150);
@@ -188,7 +192,8 @@ const DBZScanner: React.FC = () => {
               character: persona.name,
               imageUrl: base64Img,
               battleClass,
-              potentialMultiplier: multiplier
+              potentialMultiplier: multiplier,
+              audioBase64: audioB64 || undefined
           });
 
           setViewState('RESULT');
@@ -260,9 +265,16 @@ Get scanned at Brzi.AI
 
               {/* Persona Comment */}
               <div className="bg-gradient-to-br from-zinc-900 to-zinc-950 border-l-4 border-cyber-green p-4 rounded shadow-lg">
-                   <div className="flex items-center gap-2 mb-2">
-                       <span className="text-xs font-bold bg-cyber-green text-black px-2 py-0.5 rounded">{currentPersona}</span>
-                       <span className="text-[10px] text-zinc-500">AUDIO LOG</span>
+                   <div className="flex items-center justify-between mb-2">
+                       <div className="flex items-center gap-2">
+                           <span className="text-xs font-bold bg-cyber-green text-black px-2 py-0.5 rounded">{currentPersona}</span>
+                           <span className="text-[10px] text-zinc-500">AUDIO LOG</span>
+                       </div>
+                       {currentAudio && (
+                           <button onClick={() => playAudio(currentAudio)} className="text-cyber-green hover:text-white transition-colors">
+                               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>
+                           </button>
+                       )}
                    </div>
                    <p className="text-zinc-200 italic font-medium leading-relaxed">"{currentTaunt}"</p>
               </div>
@@ -317,8 +329,15 @@ Get scanned at Brzi.AI
                   <div key={h.id} className="flex gap-4 bg-zinc-900 p-3 rounded border border-zinc-800">
                       {h.imageUrl && <img src={h.imageUrl} className="w-16 h-16 object-cover rounded bg-zinc-800" />}
                       <div className="flex-1">
-                          <div className="flex justify-between">
-                              <span className="text-xl font-black text-white">{h.power.toLocaleString()}</span>
+                          <div className="flex justify-between items-center">
+                              <div className="flex items-center gap-2">
+                                  <span className="text-xl font-black text-white">{h.power.toLocaleString()}</span>
+                                  {h.audioBase64 && (
+                                      <button onClick={() => playAudio(h.audioBase64 as string)} className="text-cyber-green hover:text-white transition-colors">
+                                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>
+                                      </button>
+                                  )}
+                              </div>
                               <span className="text-[10px] bg-zinc-800 px-1 rounded text-zinc-400">{h.battleClass}</span>
                           </div>
                           <div className="text-xs text-zinc-500">{new Date(h.timestamp).toLocaleDateString()}</div>

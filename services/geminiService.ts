@@ -4,7 +4,7 @@ import { PERSONALITIES } from '../config/personalities';
 import { PROMPT_TEMPLATES } from '../config/promptTemplates';
 import { HumeService } from './humeService';
 
-const getAI = () => new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+export const getAI = () => new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const getPaidAI = async () => {
     // @ts-ignore

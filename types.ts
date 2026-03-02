@@ -66,6 +66,7 @@ export interface DBZScanResult {
   shareUrl?: string;
   battleClass?: string; // e.g. "Planetary Threat"
   potentialMultiplier?: number;
+  audioBase64?: string;
 }
 
 // --- ANALYTICS TYPES ---

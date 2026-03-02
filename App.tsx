@@ -144,7 +144,7 @@ const App: React.FC = () => {
              </select>
         </div>
 
-        <div className="flex-1 overflow-hidden relative">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden relative">
             {renderView()}
             <div className="pointer-events-none absolute inset-0 opacity-[0.03] bg-[url('https://upload.wikimedia.org/wikipedia/commons/7/76/Noise.png')] z-50"></div>
         </div>

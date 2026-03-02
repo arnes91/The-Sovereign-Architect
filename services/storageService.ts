@@ -492,5 +492,7 @@ export const StorageService = {
         }
         localStorage.removeItem(KEYS.LONG_TERM_MEMORY);
         localStorage.removeItem(KEYS.CHAT_HISTORY);
+        await set(KEYS.LONG_TERM_MEMORY, []);
+        await set(KEYS.CHAT_HISTORY, []);
     }
 };

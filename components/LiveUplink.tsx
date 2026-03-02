@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { arrayBufferToBase64, decodePCM } from '../services/geminiService';
@@ -13,6 +12,12 @@ const LiveUplink: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null); 
   const visualizerCanvasRef = useRef<HTMLCanvasElement>(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  
+  // Settings State
+  const [selectedVoice, setSelectedVoice] = useState(PERSONALITIES.MIKU_GLITCH.voice);
+  const [systemPrompt, setSystemPrompt] = useState(PROMPT_TEMPLATES.LIVE_UPLINK_MIKU);
+  const [savedMemory, setSavedMemory] = useState('');
   
   // Audio Context Refs
   const inputAudioContextRef = useRef<AudioContext | null>(null);
@@ -21,16 +26,20 @@ const LiveUplink: React.FC = () => {
   const nextStartTimeRef = useRef<number>(0);
   const sessionPromiseRef = useRef<Promise<any> | null>(null);
   const rafIdRef = useRef<number | null>(null);
+  const cameraIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Session Memory
   const sessionTranscriptsRef = useRef<string[]>([]);
 
   const addLog = (msg: string) => setLog(prev => [...prev.slice(-4), msg]);
 
+  useEffect(() => {
+      StorageService.getLiveMemory().then(mem => setSavedMemory(mem));
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      // SAVE MEMORY ON EXIT
       if (sessionTranscriptsRef.current.length > 0) {
           const summary = "Session Log: " + sessionTranscriptsRef.current.join(" | ");
           StorageService.saveLiveMemory(summary).then(() => {
@@ -39,10 +48,19 @@ const LiveUplink: React.FC = () => {
       }
 
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+      if (cameraIntervalRef.current) clearInterval(cameraIntervalRef.current);
       if (inputAudioContextRef.current) inputAudioContextRef.current.close();
       if (outputAudioContextRef.current) outputAudioContextRef.current.close();
     };
   }, []);
+
+  const clearMemory = async () => {
+      if(confirm("Wipe Miku's Memory? She will forget everything.")) {
+          await StorageService.clearLiveMemory();
+          setSavedMemory('');
+          addLog("MEMORY PURGED.");
+      }
+  };
 
   const connect = async () => {
     try {
@@ -50,14 +68,12 @@ const LiveUplink: React.FC = () => {
       addLog("LOADING LTM (Long Term Memory)...");
       
       const previousContext = await StorageService.getLiveMemory();
-      // Inject strict memory instructions
       const memoryInjection = previousContext 
         ? `\n\n[SYSTEM MEMORY DETECTED - DO NOT IGNORE]:\n${previousContext}\n\n[INSTRUCTION]: You MUST acknowledge previous interactions found in the memory above. If the user mentions something from before, recall it.` 
         : "";
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
-      // Setup Audio Contexts
       inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
       
@@ -103,7 +119,6 @@ const LiveUplink: React.FC = () => {
             startGlitchVisualizer();
           },
           onmessage: async (message: LiveServerMessage) => {
-             // Audio Output
              const base64Audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
              if (base64Audio && outputAudioContextRef.current && analyserRef.current) {
                  const ctx = outputAudioContextRef.current;
@@ -117,18 +132,16 @@ const LiveUplink: React.FC = () => {
                  nextStartTimeRef.current = startTime + audioBuffer.duration;
              }
              
-             // Capture Transcripts for Memory
              if (message.serverContent?.modelTurn?.parts?.[0]?.text) {
                  const text = message.serverContent.modelTurn.parts[0].text;
                  sessionTranscriptsRef.current.push(`AI: ${text}`);
              }
              
              if (message.serverContent?.turnComplete) {
-                 // CRITICAL: Save memory on every turn complete to avoid data loss on crash/refresh
                  const currentSessionLog = sessionTranscriptsRef.current.join(" | ");
                  if (currentSessionLog.length > 0) {
                     StorageService.saveLiveMemory(currentSessionLog);
-                    sessionTranscriptsRef.current = []; // Clear local buffer to prevent duplicating history
+                    sessionTranscriptsRef.current = []; 
                     addLog("Turn Complete. Memory Synced.");
                  }
              }
@@ -137,6 +150,7 @@ const LiveUplink: React.FC = () => {
             addLog("CONNECTION SEVERED.");
             setIsConnected(false);
             if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+            if (cameraIntervalRef.current) clearInterval(cameraIntervalRef.current);
           },
           onerror: (e: any) => {
             addLog(`CRITICAL ERROR: ${e.message || 'Unknown'}`);
@@ -145,10 +159,9 @@ const LiveUplink: React.FC = () => {
         config: {
             responseModalities: [Modality.AUDIO],
             speechConfig: {
-                voiceConfig: { prebuiltVoiceConfig: { voiceName: PERSONALITIES.MIKU_GLITCH.voice as any } }
+                voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice as any } }
             },
-            // INJECT MEMORY HERE
-            systemInstruction: PROMPT_TEMPLATES.LIVE_UPLINK_MIKU + memoryInjection
+            systemInstruction: systemPrompt + memoryInjection
         }
       };
 
@@ -169,8 +182,8 @@ const LiveUplink: React.FC = () => {
 
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
-    const COLOR_PRIMARY = '#39c5bb'; // Miku Teal
-    const COLOR_SECONDARY = '#ff00ff'; // Glitch Pink
+    const COLOR_PRIMARY = '#39c5bb'; 
+    const COLOR_SECONDARY = '#ff00ff'; 
 
     const render = () => {
         rafIdRef.current = requestAnimationFrame(render);
@@ -194,19 +207,26 @@ const LiveUplink: React.FC = () => {
         ctx.save(); 
 
         if(bass > 140) { 
-            const shiftX = (Math.random() - 0.5) * 15;
-            const shiftY = (Math.random() - 0.5) * 5;
+            const shiftX = (Math.random() - 0.5) * 20;
+            const shiftY = (Math.random() - 0.5) * 10;
             ctx.translate(shiftX, shiftY); 
             
-            if(Math.random() > 0.8) {
+            if(Math.random() > 0.7) {
                  ctx.fillStyle = COLOR_SECONDARY;
-                 ctx.fillRect(Math.random() * width, Math.random() * height, width, 4);
+                 ctx.fillRect(Math.random() * width, Math.random() * height, width, 4 + Math.random() * 10);
             }
-            if (Math.random() > 0.9) {
+            if (Math.random() > 0.8) {
                 ctx.globalCompositeOperation = 'difference';
                 ctx.fillStyle = 'white';
                 ctx.fillRect(0,0,width,height);
                 ctx.globalCompositeOperation = 'source-over';
+            }
+            // Complex glitch: slice and shift
+            if (Math.random() > 0.85) {
+                const sliceY = Math.random() * height;
+                const sliceH = Math.random() * 50;
+                const shift = (Math.random() - 0.5) * 50;
+                ctx.drawImage(canvas, 0, sliceY, width, sliceH, shift, sliceY, width, sliceH);
             }
         } else {
             ctx.setTransform(1,0,0,1,0,0);
@@ -232,13 +252,13 @@ const LiveUplink: React.FC = () => {
         ctx.stroke();
 
         if (bass > 130) {
-            for(let k=0; k<2; k++){
+            for(let k=0; k<3; k++){
                 ctx.fillStyle = Math.random() > 0.5 ? COLOR_PRIMARY : COLOR_SECONDARY;
                 ctx.fillRect(
                     Math.random() * width,
                     Math.random() * height,
-                    2 + Math.random() * 3,
-                    2 + Math.random() * 10
+                    2 + Math.random() * 5,
+                    2 + Math.random() * 15
                 );
             }
         }
@@ -254,6 +274,7 @@ const LiveUplink: React.FC = () => {
           if(videoRef.current) {
               videoRef.current.srcObject = stream;
               setIsCameraActive(true);
+              
               const sendFrame = () => {
                   if(!canvasRef.current || !videoRef.current) return;
                   const ctx = canvasRef.current.getContext('2d');
@@ -270,34 +291,31 @@ const LiveUplink: React.FC = () => {
                         });
                     });
                   }
-                  if(isCameraActive) requestAnimationFrame(sendFrame);
               };
-              setInterval(sendFrame, 1000); 
+              
+              // Send frame every 2 seconds
+              cameraIntervalRef.current = setInterval(sendFrame, 2000); 
           }
       } catch (e) {
           addLog("Camera blocked.");
       }
   };
 
-  const clearMemory = async () => {
-      if(confirm("Wipe Miku's Memory? She will forget everything.")) {
-          await StorageService.clearLiveMemory();
-          addLog("MEMORY PURGED.");
-      }
-  };
-
   return (
-    <div className="h-full flex flex-col p-6 relative overflow-hidden bg-black">
+    <div className="h-full flex flex-col p-4 md:p-6 relative overflow-y-auto overflow-x-hidden bg-black pb-24">
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 pointer-events-none"></div>
       
-      <div className="flex justify-between items-center mb-8 z-10">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 z-10 gap-4">
         <div>
-            <h2 className="text-4xl font-black font-mono text-transparent bg-clip-text bg-gradient-to-r from-[#39c5bb] to-[#ff00ff] tracking-tighter">
+            <h2 className="text-3xl md:text-4xl font-black font-mono text-transparent bg-clip-text bg-gradient-to-r from-[#39c5bb] to-[#ff00ff] tracking-tighter">
             MIKU VAJFUŠA
             </h2>
             <p className="text-[10px] font-mono text-[#39c5bb] tracking-[0.3em]">GLITCH CORE PROTOCOL // v9.2 PERSISTENT</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+             <button onClick={() => setShowSettings(!showSettings)} className="px-3 py-1 text-xs font-mono border border-zinc-700 text-zinc-300 hover:border-white hover:text-white transition-colors">
+                 SETTINGS
+             </button>
              <button onClick={clearMemory} className="px-3 py-1 text-xs font-mono border border-zinc-700 text-zinc-500 hover:border-red-500 hover:text-red-500 transition-colors">
                  WIPE MEMORY
              </button>
@@ -307,48 +325,90 @@ const LiveUplink: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center z-10 gap-8 relative">
-        <div className="relative w-full h-[400px] flex items-center justify-center">
-             <canvas ref={visualizerCanvasRef} className="w-full h-full"/>
+      {showSettings && (
+          <div className="mb-6 p-4 border border-zinc-800 bg-zinc-900/80 z-20 relative rounded">
+              <h3 className="text-sm font-bold text-white mb-4 font-mono">ADVANCED SETTINGS</h3>
+              <div className="space-y-4">
+                  <div>
+                      <label className="block text-xs text-zinc-400 mb-1 font-mono">VOICE MODEL</label>
+                      <select 
+                          value={selectedVoice} 
+                          onChange={(e) => setSelectedVoice(e.target.value)}
+                          className="w-full bg-black border border-zinc-700 p-2 text-sm text-white font-mono rounded"
+                      >
+                          <option value="Aoede">Aoede</option>
+                          <option value="Charon">Charon</option>
+                          <option value="Fenrir">Fenrir</option>
+                          <option value="Kore">Kore</option>
+                          <option value="Puck">Puck</option>
+                      </select>
+                  </div>
+                  <div>
+                      <label className="block text-xs text-zinc-400 mb-1 font-mono">SYSTEM PROMPT</label>
+                      <textarea 
+                          value={systemPrompt}
+                          onChange={(e) => setSystemPrompt(e.target.value)}
+                          className="w-full h-32 bg-black border border-zinc-700 p-2 text-sm text-white font-mono rounded"
+                      />
+                  </div>
+                  <div>
+                      <label className="block text-xs text-zinc-400 mb-1 font-mono">SAVED MEMORY (READ-ONLY)</label>
+                      <div className="w-full h-24 bg-black border border-zinc-700 p-2 text-xs text-zinc-500 font-mono rounded overflow-y-auto whitespace-pre-wrap">
+                          {savedMemory || 'No memory recorded.'}
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      <div className="flex-1 flex flex-col items-center justify-center z-10 gap-6 relative">
+        <div className="relative w-full max-w-2xl h-[300px] md:h-[400px] flex items-center justify-center border border-zinc-800/50 rounded-xl overflow-hidden bg-zinc-900/20">
+             <canvas ref={visualizerCanvasRef} className="w-full h-full absolute inset-0 z-10"/>
+             
+             {/* Camera Preview Background */}
+             {isCameraActive && (
+                 <video ref={videoRef} autoPlay playsInline muted className="absolute inset-0 w-full h-full object-cover opacity-30 grayscale mix-blend-screen" />
+             )}
+
             {!isConnected && (
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-                    <h1 className="text-6xl font-black text-white/10 tracking-widest">WAITING</h1>
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none z-20">
+                    <h1 className="text-4xl md:text-6xl font-black text-white/10 tracking-widest">WAITING</h1>
                 </div>
             )}
              {isConnected && (
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none mix-blend-overlay">
-                    <h1 className="text-8xl font-black text-[#ff00ff]/20 tracking-widest animate-pulse">GLITCH</h1>
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none mix-blend-overlay z-20">
+                    <h1 className="text-6xl md:text-8xl font-black text-[#ff00ff]/20 tracking-widest animate-pulse">GLITCH</h1>
                 </div>
             )}
         </div>
 
-        <video ref={videoRef} autoPlay playsInline muted className="hidden" />
         <canvas ref={canvasRef} className="hidden" />
 
-        <div className="w-full max-w-md bg-black/50 border border-zinc-800 p-4 font-mono text-xs h-32 overflow-y-auto">
+        <div className="w-full max-w-2xl bg-black/50 border border-zinc-800 p-4 font-mono text-xs h-32 overflow-y-auto rounded">
              {log.map((l, i) => <div key={i} className="text-[#39c5bb]">{">"} {l}</div>)}
              {log.length === 0 && <span className="text-zinc-600 animate-pulse">_Initialize protocol to begin...</span>}
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex flex-wrap justify-center gap-4">
             {!isConnected ? (
-                <button onClick={connect} className="bg-[#39c5bb] text-black font-black px-8 py-3 hover:bg-[#ff00ff] hover:text-white transition-all uppercase tracking-widest font-mono skew-x-[-10deg]">
+                <button onClick={connect} className="bg-[#39c5bb] text-black font-black px-6 md:px-8 py-3 hover:bg-[#ff00ff] hover:text-white transition-all uppercase tracking-widest font-mono skew-x-[-10deg] text-sm md:text-base">
                     INITIALIZE CORE
                 </button>
             ) : (
-                <button onClick={() => window.location.reload()} className="bg-red-600 text-black font-black px-8 py-3 hover:bg-red-500 transition-all uppercase tracking-widest font-mono skew-x-[-10deg]">
+                <button onClick={() => window.location.reload()} className="bg-red-600 text-black font-black px-6 md:px-8 py-3 hover:bg-red-500 transition-all uppercase tracking-widest font-mono skew-x-[-10deg] text-sm md:text-base">
                     KILL PROCESS
                 </button>
             )}
             
             {isConnected && !isCameraActive && (
-                <button onClick={startCamera} className="border border-[#39c5bb] text-[#39c5bb] font-bold px-6 py-3 hover:bg-[#39c5bb]/10 transition-colors uppercase font-mono skew-x-[-10deg]">
+                <button onClick={startCamera} className="border border-[#39c5bb] text-[#39c5bb] font-bold px-4 md:px-6 py-3 hover:bg-[#39c5bb]/10 transition-colors uppercase font-mono skew-x-[-10deg] text-sm md:text-base">
                     ENABLE VISION
                 </button>
             )}
             
             {isCameraActive && (
-                <div className="text-xs font-mono text-[#ff00ff] mt-2 bg-zinc-900 px-2 py-1 border border-[#ff00ff] skew-x-[-10deg]">
+                <div className="text-xs md:text-sm font-mono text-[#ff00ff] mt-2 bg-zinc-900 px-4 py-2 border border-[#ff00ff] skew-x-[-10deg] flex items-center">
+                    <span className="w-2 h-2 bg-[#ff00ff] rounded-full animate-pulse mr-2"></span>
                     VISION ACTIVE
                 </div>
             )}

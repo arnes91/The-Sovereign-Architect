@@ -133,7 +133,8 @@ High correlation between *YouTube Shorts* views and *Spotify* surges.
               combinedContext += content + "\n\n";
           });
 
-          const result = await analyzeDataFile(combinedContext, "Combined Data Context");
+          const prompt = "Analyze the provided data and give specific recommendations on cross-promoting YouTube content on Spotify, and vice versa. Focus on actionable insights based on the fetched statistics.";
+          const result = await analyzeDataFile(combinedContext, prompt);
           setAnalysis(result || "Analysis inconclusive.");
           setStatus('DONE');
 
@@ -155,11 +156,16 @@ High correlation between *YouTube Shorts* views and *Spotify* surges.
       }
   };
 
-  const loadReport = async (id: string) => {
+  const deleteReport = async (id: string) => {
       if(confirm("Delete this report record?")) {
           await StorageService.deleteAnalyticsReport(id);
           setReports(await StorageService.getAnalyticsReports());
       }
+  };
+
+  const loadReportContent = (report: AnalyticsReport) => {
+      setAnalysis(report.summary);
+      setShowHistory(false);
   };
 
   return (
@@ -178,12 +184,12 @@ High correlation between *YouTube Shorts* views and *Spotify* surges.
           <div className="grid grid-cols-1 gap-4 overflow-y-auto">
               {reports.length === 0 && <p className="text-zinc-500">No previous reports.</p>}
               {reports.map(r => (
-                  <div key={r.id} className="bg-zinc-900 p-4 rounded border border-zinc-800 flex justify-between items-center">
+                  <div key={r.id} className="bg-zinc-900 p-4 rounded border border-zinc-800 flex justify-between items-center cursor-pointer hover:bg-zinc-800 transition-colors" onClick={() => loadReportContent(r)}>
                       <div>
                           <div className="font-bold text-white mb-1">{r.title}</div>
                           <div className="text-xs text-zinc-500">{new Date(r.date).toLocaleString()}</div>
                       </div>
-                      <button onClick={() => loadReport(r.id)} className="text-red-500 text-xs hover:text-red-400">DELETE</button>
+                      <button onClick={(e) => { e.stopPropagation(); deleteReport(r.id); }} className="text-red-500 text-xs hover:text-red-400">DELETE</button>
                   </div>
               ))}
           </div>
@@ -194,10 +200,18 @@ High correlation between *YouTube Shorts* views and *Spotify* surges.
                   
                   <div className="bg-zinc-900/30 border border-zinc-800 rounded-lg p-4">
                       <h3 className="text-xs font-mono text-cyber-green mb-3 uppercase tracking-wider">Live Fetch</h3>
-                      <div className="flex gap-2">
-                          <button onClick={() => fetchLiveIntelligence('ALL')} disabled={status !== 'IDLE' && status !== 'DONE'} className="flex-1 bg-cyber-purple/20 border border-cyber-purple text-cyber-purple font-bold text-xs py-2 rounded">
-                              PULL LIVE METRICS
+                      <div className="flex flex-col gap-2">
+                          <button onClick={() => fetchLiveIntelligence('ALL')} disabled={status !== 'IDLE' && status !== 'DONE'} className="w-full bg-cyber-purple/20 border border-cyber-purple text-cyber-purple font-bold text-xs py-2 rounded">
+                              PULL ALL METRICS
                           </button>
+                          <div className="flex gap-2">
+                              <button onClick={() => fetchLiveIntelligence('YOUTUBE')} disabled={status !== 'IDLE' && status !== 'DONE'} className="flex-1 bg-red-500/20 border border-red-500 text-red-500 font-bold text-xs py-2 rounded">
+                                  YOUTUBE
+                              </button>
+                              <button onClick={() => fetchLiveIntelligence('SPOTIFY')} disabled={status !== 'IDLE' && status !== 'DONE'} className="flex-1 bg-green-500/20 border border-green-500 text-green-500 font-bold text-xs py-2 rounded">
+                                  SPOTIFY
+                              </button>
+                          </div>
                       </div>
                   </div>
 
