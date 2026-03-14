@@ -137,7 +137,9 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
     }
 
     try {
-        const apiHistory = messages.map(m => ({
+        // Slice history to last 20 messages to prevent token limit errors
+        const recentMessages = messages.slice(-20);
+        const apiHistory = recentMessages.map(m => ({
             role: m.role,
             parts: [{ text: m.content }]
         }));

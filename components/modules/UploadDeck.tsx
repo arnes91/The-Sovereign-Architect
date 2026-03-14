@@ -83,7 +83,6 @@ const UploadDeck: React.FC = () => {
                     ]
                 },
                 config: {
-                    tools: [{ googleSearch: {} }],
                     responseMimeType: 'application/json',
                     responseSchema: {
                         type: Type.OBJECT,

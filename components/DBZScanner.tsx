@@ -158,7 +158,9 @@ const DBZScanner: React.FC = () => {
           setScannedImage(base64Img);
 
           const stats = await HumeService.simulateScan(base64Img);
-          const { power, battleClass, multiplier } = HumeService.calculatePowerLevel(stats);
+          const { power: rawPower, battleClass, multiplier } = HumeService.calculatePowerLevel(stats);
+          
+          const power = rawPower + (user.basePowerLevel || 0);
           
           setCurrentStats(stats);
           setCurrentPower(power);
@@ -299,7 +301,21 @@ Get scanned at Brzi.AI
       </div>
   );
 
-  const ProfileView = () => (
+  const ProfileView = () => {
+      const [showAdvanced, setShowAdvanced] = useState(false);
+      
+      const handlePowerGrowth = () => {
+          if (user.xp >= 500) {
+              const updatedUser = { ...user, xp: user.xp - 500, basePowerLevel: (user.basePowerLevel || 0) + 1000 };
+              GamificationService.saveProfile(updatedUser);
+              setUser(updatedUser);
+              alert("POWER LEVEL INCREASED PERMANENTLY!");
+          } else {
+              alert("Not enough XP. Need 500 XP.");
+          }
+      };
+
+      return (
       <div className="flex flex-col h-full bg-zinc-900 p-6 overflow-y-auto">
           <div className="text-center mb-8">
               <div className="w-24 h-24 mx-auto bg-gradient-to-tr from-cyber-green to-blue-500 rounded-full flex items-center justify-center border-4 border-white mb-4 shadow-[0_0_20px_rgba(0,255,65,0.4)]">
@@ -307,11 +323,50 @@ Get scanned at Brzi.AI
               </div>
               <h2 className="text-2xl font-bold text-white">{user.username}</h2>
               <p className="text-cyber-green font-mono text-sm">{user.isPremium ? "PREMIUM WARRIOR" : "FREE USER"}</p>
+              <p className="text-zinc-400 font-mono text-xs mt-2">XP: {user.xp} | BASE POWER: {user.basePowerLevel || 0}</p>
           </div>
-          {/* Energy and Upgrades similar to before... */}
-           <button onClick={() => setViewState('HUD')} className="mt-auto py-4 text-zinc-400 font-mono text-sm">BACK TO SCANNER</button>
+          
+          <div className="space-y-4 mb-8">
+              <div className="bg-black border border-zinc-800 p-4 rounded">
+                  <h3 className="text-white font-bold mb-2">POWER GROWTH</h3>
+                  <p className="text-zinc-400 text-xs mb-4">Spend 500 XP to permanently increase your base power level by 1,000.</p>
+                  <button onClick={handlePowerGrowth} className="w-full bg-yellow-600 hover:bg-yellow-500 text-black font-bold py-2 rounded text-sm">
+                      TRAIN (500 XP)
+                  </button>
+              </div>
+              
+              <div className="bg-black border border-zinc-800 p-4 rounded">
+                  <div className="flex justify-between items-center cursor-pointer" onClick={() => setShowAdvanced(!showAdvanced)}>
+                      <h3 className="text-white font-bold">ADVANCED SETTINGS</h3>
+                      <span className="text-cyber-green">{showAdvanced ? '▼' : '▶'}</span>
+                  </div>
+                  {showAdvanced && (
+                      <div className="mt-4 space-y-4">
+                          <div>
+                              <label className="block text-xs text-zinc-400 mb-1 font-mono">PREFERRED PERSONA VOICE</label>
+                              <select className="w-full bg-zinc-900 border border-zinc-700 p-2 text-sm text-white font-mono rounded">
+                                  <option value="Aoede">Aoede</option>
+                                  <option value="Charon">Charon</option>
+                                  <option value="Fenrir">Fenrir</option>
+                                  <option value="Kore">Kore</option>
+                                  <option value="Puck">Puck</option>
+                              </select>
+                          </div>
+                          <div>
+                              <label className="block text-xs text-zinc-400 mb-1 font-mono">SYSTEM OVERRIDE PROMPT</label>
+                              <textarea 
+                                  placeholder="Override the default DBZ scanner prompt..."
+                                  className="w-full h-24 bg-zinc-900 border border-zinc-700 p-2 text-sm text-white font-mono rounded"
+                              />
+                          </div>
+                      </div>
+                  )}
+              </div>
+          </div>
+          
+          <button onClick={() => setViewState('HUD')} className="mt-auto py-4 text-zinc-400 font-mono text-sm">BACK TO SCANNER</button>
       </div>
-  );
+  )};
 
   const HistoryView = () => {
       const [scans, setScans] = useState<DBZScanResult[]>([]);

@@ -1,0 +1,146 @@
+{
+  "entities": {
+    "KnowledgeItem": {
+      "title": "KnowledgeItem",
+      "description": "An item in the knowledge base.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "owner_id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "source_url": { "type": "string" },
+        "metadata": { "type": "object" },
+        "created_at": { "type": "number" }
+      },
+      "required": ["id", "owner_id", "title", "description"]
+    },
+    "DBZHistoryItem": {
+      "title": "DBZHistoryItem",
+      "description": "A DBZ scanner history item.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "owner_id": { "type": "string" },
+        "operation": { "type": "string" },
+        "payload": { "type": "object" },
+        "status": { "type": "string" },
+        "created_at": { "type": "number" }
+      },
+      "required": ["owner_id", "operation", "payload", "created_at"]
+    },
+    "ImageHistoryItem": {
+      "title": "ImageHistoryItem",
+      "description": "A generated image history item.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "owner_id": { "type": "string" },
+        "prompt": { "type": "string" },
+        "model": { "type": "string" },
+        "storage_path": { "type": "string" },
+        "created_at": { "type": "number" }
+      },
+      "required": ["owner_id", "prompt", "storage_path", "created_at"]
+    },
+    "AnalyticsHistoryItem": {
+      "title": "AnalyticsHistoryItem",
+      "description": "An analytics report history item.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "owner_id": { "type": "string" },
+        "event_name": { "type": "string" },
+        "properties": { "type": "object" },
+        "created_at": { "type": "number" }
+      },
+      "required": ["owner_id", "event_name", "properties", "created_at"]
+    },
+    "LiveMemoryItem": {
+      "title": "LiveMemoryItem",
+      "description": "A live memory item.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "owner_id": { "type": "string" },
+        "key": { "type": "string" },
+        "value": { "type": "object" }
+      },
+      "required": ["owner_id", "key", "value"]
+    },
+    "ChatSession": {
+      "title": "ChatSession",
+      "description": "A chat session.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "owner_id": { "type": "string" },
+        "title": { "type": "string" },
+        "created_at": { "type": "number" }
+      },
+      "required": ["owner_id", "title", "created_at"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A chat message.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "session_id": { "type": "string" },
+        "owner_id": { "type": "string" },
+        "role": { "type": "string" },
+        "content": { "type": "string" },
+        "metadata": { "type": "object" },
+        "created_at": { "type": "number" }
+      },
+      "required": ["session_id", "owner_id", "role", "content", "created_at"]
+    },
+    "LongTermMemoryItem": {
+      "title": "LongTermMemoryItem",
+      "description": "A long term memory item.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "owner_id": { "type": "string" },
+        "content": { "type": "string" },
+        "embedding": { "type": "array" },
+        "created_at": { "type": "number" }
+      },
+      "required": ["owner_id", "content", "created_at"]
+    }
+  },
+  "firestore": {
+    "/knowledge_base/{itemId}": {
+      "schema": "KnowledgeItem",
+      "description": "Knowledge base items."
+    },
+    "/dbz_history/{itemId}": {
+      "schema": "DBZHistoryItem",
+      "description": "DBZ scanner history."
+    },
+    "/image_history/{itemId}": {
+      "schema": "ImageHistoryItem",
+      "description": "Generated images history."
+    },
+    "/analytics_history/{itemId}": {
+      "schema": "AnalyticsHistoryItem",
+      "description": "Analytics reports and release data."
+    },
+    "/live_memory/{itemId}": {
+      "schema": "LiveMemoryItem",
+      "description": "Live memory data."
+    },
+    "/chat_sessions/{sessionId}": {
+      "schema": "ChatSession",
+      "description": "Chat sessions."
+    },
+    "/chat_history/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Chat messages."
+    },
+    "/long_term_memory/{memoryId}": {
+      "schema": "LongTermMemoryItem",
+      "description": "Long term memory items."
+    }
+  }
+}

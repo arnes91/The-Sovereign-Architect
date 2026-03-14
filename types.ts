@@ -91,6 +91,7 @@ export interface UserProfile {
   isPremium: boolean;
   unlockedPersonas: string[];
   joinedAt: number;
+  basePowerLevel?: number;
 }
 
 export interface GeneratedImage {

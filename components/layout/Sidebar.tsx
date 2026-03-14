@@ -60,11 +60,22 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
         ))}
       </nav>
 
-      <div className="p-6 border-t border-zinc-900">
+      <div className="p-6 border-t border-zinc-900 flex justify-between items-center">
          <div className="flex items-center gap-2">
              <div className="w-2 h-2 rounded-full bg-cyber-green animate-pulse"></div>
              <span className="text-[10px] font-mono text-zinc-500">SYSTEM OPTIMAL</span>
          </div>
+         <button 
+             onClick={() => {
+                 import('../../firebase').then(({ auth }) => {
+                     auth.signOut();
+                 });
+             }}
+             className="text-[10px] font-mono text-zinc-500 hover:text-red-500 transition-colors"
+             title="Sign Out"
+         >
+             LOGOUT
+         </button>
       </div>
     </div>
   );

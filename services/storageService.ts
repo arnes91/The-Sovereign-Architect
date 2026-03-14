@@ -1,11 +1,11 @@
-
 /**
  * Storage Service
  * Handles Local Persistence and Simulated Vector Memory
  */
 
 import { KnowledgeItem, DBZScanResult, GeneratedImage, AnalyticsReport } from "../types";
-import { supabase } from "./supabaseClient";
+import { auth, db } from "../firebase";
+import { collection, doc, setDoc, getDocs, deleteDoc, query, where, orderBy, limit, getDoc, updateDoc } from 'firebase/firestore';
 import { generateEmbedding } from "./geminiService";
 import { get, set } from 'idb-keyval';
 
@@ -20,35 +20,37 @@ const KEYS = {
     LONG_TERM_MEMORY: 'brzi_long_term_vector_sim'
 };
 
-const isSupabaseConfigured = () => {
-    return import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder.supabase.co';
-};
-
-const getOwnerId = async () => {
-    if (!isSupabaseConfigured()) return null;
-    const { data: { user } } = await supabase.auth.getUser();
-    return user?.id || null;
+const getOwnerId = () => {
+    return auth.currentUser?.uid || null;
 };
 
 export const StorageService = {
     // --- Knowledge Base ---
     saveKnowledgeItem: async (item: KnowledgeItem) => {
-        if (isSupabaseConfigured()) {
+        const owner_id = getOwnerId();
+        if (owner_id) {
             try {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    const { error } = await supabase.from('knowledge_base').insert([{
-                        id: item.id,
-                        owner_id,
-                        title: item.title,
-                        description: item.content,
-                        source_url: item.source,
-                        metadata: { tags: item.tags },
-                        created_at: item.createdAt
-                    }]);
-                    if (!error) return;
+                const dataToSave: any = {
+                    id: item.id,
+                    owner_id,
+                    title: item.title || "Untitled",
+                    description: item.content || "No content",
+                    metadata: { tags: item.tags || [] },
+                    created_at: Date.now()
+                };
+                if (item.source) {
+                    dataToSave.source_url = item.source;
                 }
-            } catch (e) { console.error("Supabase error:", e); }
+                
+                // Sanitize undefined values
+                Object.keys(dataToSave).forEach(key => {
+                    if (dataToSave[key] === undefined) {
+                        delete dataToSave[key];
+                    }
+                });
+
+                await setDoc(doc(db, 'knowledge_base', item.id), dataToSave);
+            } catch (e) { console.error("Firebase error:", e); }
         }
         // Fallback
         const current = await StorageService.getKnowledgeItems();
@@ -57,23 +59,25 @@ export const StorageService = {
     },
 
     getKnowledgeItems: async (): Promise<KnowledgeItem[]> => {
-        if (isSupabaseConfigured()) {
+        const owner_id = getOwnerId();
+        if (owner_id) {
             try {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    const { data, error } = await supabase.from('knowledge_base').select('*').eq('owner_id', owner_id).order('created_at', { ascending: false });
-                    if (!error && data) {
-                        return data.map(d => ({
-                            id: d.id,
-                            title: d.title,
-                            content: d.description,
-                            source: d.source_url,
-                            tags: d.metadata?.tags || [],
-                            createdAt: d.created_at
-                        }));
-                    }
-                }
-            } catch (e) { console.error("Supabase error:", e); }
+                const q = query(collection(db, 'knowledge_base'), where('owner_id', '==', owner_id));
+                const querySnapshot = await getDocs(q);
+                const items: KnowledgeItem[] = [];
+                querySnapshot.forEach((doc) => {
+                    const d = doc.data();
+                    items.push({
+                        id: d.id,
+                        title: d.title,
+                        content: d.description,
+                        source: d.source_url,
+                        tags: d.metadata?.tags || [],
+                        createdAt: new Date(d.created_at).toISOString()
+                    });
+                });
+                return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            } catch (e) { console.error("Firebase error:", e); }
         }
         // Fallback
         try {
@@ -83,14 +87,11 @@ export const StorageService = {
     },
 
     deleteKnowledgeItem: async (id: string) => {
-        if (isSupabaseConfigured()) {
+        const owner_id = getOwnerId();
+        if (owner_id) {
             try {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    const { error } = await supabase.from('knowledge_base').delete().eq('id', id).eq('owner_id', owner_id);
-                    if (!error) return;
-                }
-            } catch (e) { console.error("Supabase error:", e); }
+                await deleteDoc(doc(db, 'knowledge_base', id));
+            } catch (e) { console.error("Firebase error:", e); }
         }
         // Fallback
         const current = await StorageService.getKnowledgeItems();
@@ -100,20 +101,20 @@ export const StorageService = {
 
     // --- DBZ History ---
     saveScan: async (scan: DBZScanResult) => {
-        if (isSupabaseConfigured()) {
+        const owner_id = getOwnerId();
+        if (owner_id) {
             try {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    const { error } = await supabase.from('dbz_history').insert([{
-                        owner_id,
-                        operation: 'scan',
-                        payload: scan,
-                        status: 'completed',
-                        created_at: scan.timestamp
-                    }]);
-                    if (!error) return;
-                }
-            } catch (e) { console.error("Supabase error:", e); }
+                const newDocRef = doc(collection(db, 'dbz_history'));
+                const payload = JSON.parse(JSON.stringify(scan)); // Remove undefined fields
+                await setDoc(newDocRef, {
+                    id: newDocRef.id,
+                    owner_id,
+                    operation: 'scan',
+                    payload: payload,
+                    status: 'completed',
+                    created_at: Date.now()
+                });
+            } catch (e) { console.error("Firebase error:", e); }
         }
         // Fallback
         const current = await StorageService.getScans();
@@ -122,16 +123,17 @@ export const StorageService = {
     },
 
     getScans: async (): Promise<DBZScanResult[]> => {
-        if (isSupabaseConfigured()) {
+        const owner_id = getOwnerId();
+        if (owner_id) {
             try {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    const { data, error } = await supabase.from('dbz_history').select('*').eq('owner_id', owner_id).order('created_at', { ascending: false }).limit(50);
-                    if (!error && data) {
-                        return data.map(d => d.payload as DBZScanResult);
-                    }
-                }
-            } catch (e) { console.error("Supabase error:", e); }
+                const q = query(collection(db, 'dbz_history'), where('owner_id', '==', owner_id));
+                const querySnapshot = await getDocs(q);
+                const scans: any[] = [];
+                querySnapshot.forEach((doc) => {
+                    scans.push(doc.data());
+                });
+                return scans.sort((a, b) => b.created_at - a.created_at).map(s => s.payload).slice(0, 50);
+            } catch (e) { console.error("Firebase error:", e); }
         }
         // Fallback
         try {
@@ -142,31 +144,19 @@ export const StorageService = {
 
     // --- Image History ---
     saveGeneratedImage: async (item: GeneratedImage) => {
-        if (isSupabaseConfigured()) {
+        const owner_id = getOwnerId();
+        if (owner_id) {
             try {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    if (item.url.startsWith('data:image')) {
-                        const res = await fetch(item.url);
-                        const blob = await res.blob();
-                        const fileName = `image_${item.id}.jpg`;
-                        const { data: uploadData, error: uploadError } = await supabase.storage.from('images').upload(fileName, blob);
-                        
-                        if (!uploadError && uploadData) {
-                            const { data: publicUrlData } = supabase.storage.from('images').getPublicUrl(fileName);
-                            item.url = publicUrlData.publicUrl;
-                        }
-                    }
-                    const { error } = await supabase.from('image_history').insert([{
-                        owner_id,
-                        prompt: item.prompt,
-                        model: item.model,
-                        storage_path: item.url,
-                        created_at: item.timestamp
-                    }]);
-                    if (!error) return;
-                }
-            } catch (e) { console.error("Supabase error:", e); }
+                const newDocRef = doc(collection(db, 'image_history'));
+                await setDoc(newDocRef, {
+                    id: newDocRef.id,
+                    owner_id,
+                    prompt: item.prompt,
+                    model: (item as any).model || "unknown",
+                    storage_path: item.url,
+                    created_at: Date.now()
+                });
+            } catch (e) { console.error("Firebase error:", e); }
         }
         // Fallback
         const current = await StorageService.getGeneratedImages();
@@ -179,22 +169,25 @@ export const StorageService = {
     },
 
     getGeneratedImages: async (): Promise<GeneratedImage[]> => {
-        if (isSupabaseConfigured()) {
+        const owner_id = getOwnerId();
+        if (owner_id) {
             try {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    const { data, error } = await supabase.from('image_history').select('*').eq('owner_id', owner_id).order('created_at', { ascending: false }).limit(20);
-                    if (!error && data) {
-                        return data.map(d => ({
-                            id: d.id,
-                            prompt: d.prompt,
-                            url: d.storage_path,
-                            model: d.model,
-                            timestamp: d.created_at
-                        }));
-                    }
-                }
-            } catch (e) { console.error("Supabase error:", e); }
+                const q = query(collection(db, 'image_history'), where('owner_id', '==', owner_id));
+                const querySnapshot = await getDocs(q);
+                const images: any[] = [];
+                querySnapshot.forEach((doc) => {
+                    const d = doc.data();
+                    images.push({
+                        id: doc.id,
+                        prompt: d.prompt,
+                        url: d.storage_path,
+                        model: d.model,
+                        timestamp: new Date(d.created_at).toISOString(),
+                        created_at: d.created_at
+                    });
+                });
+                return images.sort((a, b) => b.created_at - a.created_at).slice(0, 20);
+            } catch (e) { console.error("Firebase error:", e); }
         }
         // Fallback
         try {
@@ -205,19 +198,19 @@ export const StorageService = {
 
     // --- Analytics ---
     saveAnalyticsReport: async (report: AnalyticsReport) => {
-        if (isSupabaseConfigured()) {
+        const owner_id = getOwnerId();
+        if (owner_id) {
             try {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    const { error } = await supabase.from('analytics_history').insert([{
-                        owner_id,
-                        event_name: 'report_generated',
-                        properties: report,
-                        created_at: report.date
-                    }]);
-                    if (!error) return;
-                }
-            } catch (e) { console.error("Supabase error:", e); }
+                const newDocRef = doc(collection(db, 'analytics_history'));
+                const properties = JSON.parse(JSON.stringify(report));
+                await setDoc(newDocRef, {
+                    id: newDocRef.id,
+                    owner_id,
+                    event_name: 'report_generated',
+                    properties: properties,
+                    created_at: Date.now()
+                });
+            } catch (e) { console.error("Firebase error:", e); }
         }
         // Fallback
         const current = await StorageService.getAnalyticsReports();
@@ -226,16 +219,17 @@ export const StorageService = {
     },
 
     getAnalyticsReports: async (): Promise<AnalyticsReport[]> => {
-        if (isSupabaseConfigured()) {
+        const owner_id = getOwnerId();
+        if (owner_id) {
             try {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    const { data, error } = await supabase.from('analytics_history').select('*').eq('owner_id', owner_id).order('created_at', { ascending: false });
-                    if (!error && data) {
-                        return data.map(d => d.properties as AnalyticsReport);
-                    }
-                }
-            } catch (e) { console.error("Supabase error:", e); }
+                const q = query(collection(db, 'analytics_history'), where('owner_id', '==', owner_id));
+                const querySnapshot = await getDocs(q);
+                const reports: any[] = [];
+                querySnapshot.forEach((doc) => {
+                    reports.push(doc.data());
+                });
+                return reports.sort((a, b) => b.created_at - a.created_at).map(r => r.properties);
+            } catch (e) { console.error("Firebase error:", e); }
         }
         // Fallback
         try {
@@ -245,15 +239,17 @@ export const StorageService = {
     },
     
     deleteAnalyticsReport: async (id: string) => {
-        if (isSupabaseConfigured()) {
+        const owner_id = getOwnerId();
+        if (owner_id) {
             try {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    // Since we stored the report in properties, we need to match properties->>id
-                    const { error } = await supabase.from('analytics_history').delete().eq('owner_id', owner_id).eq('properties->>id', id);
-                    if (!error) return;
-                }
-            } catch (e) { console.error("Supabase error:", e); }
+                const q = query(collection(db, 'analytics_history'), where('owner_id', '==', owner_id));
+                const querySnapshot = await getDocs(q);
+                querySnapshot.forEach(async (d) => {
+                    if (d.data().properties?.id === id) {
+                        await deleteDoc(doc(db, 'analytics_history', d.id));
+                    }
+                });
+            } catch (e) { console.error("Firebase error:", e); }
         }
         // Fallback
         const current = await StorageService.getAnalyticsReports();
@@ -263,19 +259,19 @@ export const StorageService = {
 
     // --- RELEASES (DISTROKID PIPELINE) ---
     saveReleaseData: async (release: any) => {
-        if (isSupabaseConfigured()) {
+        const owner_id = getOwnerId();
+        if (owner_id) {
             try {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    const { error } = await supabase.from('analytics_history').insert([{
-                        owner_id,
-                        event_name: 'song_release_prepared',
-                        properties: release,
-                        created_at: new Date().toISOString()
-                    }]);
-                    if (!error) return;
-                }
-            } catch (e) { console.error("Supabase error:", e); }
+                const newDocRef = doc(collection(db, 'analytics_history'));
+                const properties = JSON.parse(JSON.stringify(release));
+                await setDoc(newDocRef, {
+                    id: newDocRef.id,
+                    owner_id,
+                    event_name: 'song_release_prepared',
+                    properties: properties,
+                    created_at: Date.now()
+                });
+            } catch (e) { console.error("Firebase error:", e); }
         }
         // Fallback
         const current = await StorageService.getReleaseData();
@@ -284,16 +280,17 @@ export const StorageService = {
     },
 
     getReleaseData: async (): Promise<any[]> => {
-        if (isSupabaseConfigured()) {
+        const owner_id = getOwnerId();
+        if (owner_id) {
             try {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    const { data, error } = await supabase.from('analytics_history').select('*').eq('owner_id', owner_id).eq('event_name', 'song_release_prepared').order('created_at', { ascending: false });
-                    if (!error && data) {
-                        return data.map(d => d.properties);
-                    }
-                }
-            } catch (e) { console.error("Supabase error:", e); }
+                const q = query(collection(db, 'analytics_history'), where('owner_id', '==', owner_id), where('event_name', '==', 'song_release_prepared'));
+                const querySnapshot = await getDocs(q);
+                const releases: any[] = [];
+                querySnapshot.forEach((doc) => {
+                    releases.push(doc.data());
+                });
+                return releases.sort((a, b) => b.created_at - a.created_at).map(r => r.properties);
+            } catch (e) { console.error("Firebase error:", e); }
         }
         // Fallback
         try {
@@ -307,112 +304,126 @@ export const StorageService = {
         const current = await StorageService.getLiveMemory();
         const updated = (current + "\n" + summary).slice(-2000);
         
-        if (isSupabaseConfigured()) {
+        const owner_id = getOwnerId();
+        if (owner_id) {
             try {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    const { data: existing } = await supabase.from('live_memory').select('id').eq('owner_id', owner_id).eq('key', 'live_memory_1').single();
-                    if (existing) {
-                        await supabase.from('live_memory').update({ value: { content: updated } }).eq('id', existing.id);
-                    } else {
-                        await supabase.from('live_memory').insert([{ owner_id, key: 'live_memory_1', value: { content: updated } }]);
-                    }
-                    return;
+                const q = query(collection(db, 'live_memory'), where('owner_id', '==', owner_id), where('key', '==', 'live_memory_1'));
+                const querySnapshot = await getDocs(q);
+                if (!querySnapshot.empty) {
+                    const docId = querySnapshot.docs[0].id;
+                    await updateDoc(doc(db, 'live_memory', docId), { value: { content: updated } });
+                } else {
+                    const newDocRef = doc(collection(db, 'live_memory'));
+                    await setDoc(newDocRef, { id: newDocRef.id, owner_id, key: 'live_memory_1', value: { content: updated } });
                 }
-            } catch (e) { console.error("Supabase error:", e); }
+            } catch (e) { console.error("Firebase error:", e); }
         }
         // Fallback
         await set(KEYS.LIVE_MEMORY, updated);
     },
 
     getLiveMemory: async (): Promise<string> => {
-        if (isSupabaseConfigured()) {
+        const owner_id = getOwnerId();
+        if (owner_id) {
             try {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    const { data, error } = await supabase.from('live_memory').select('value').eq('owner_id', owner_id).eq('key', 'live_memory_1').single();
-                    if (!error && data && data.value) return (data.value as any).content || "";
+                const q = query(collection(db, 'live_memory'), where('owner_id', '==', owner_id), where('key', '==', 'live_memory_1'));
+                const querySnapshot = await getDocs(q);
+                if (!querySnapshot.empty) {
+                    return querySnapshot.docs[0].data().value?.content || "";
                 }
-            } catch (e) { console.error("Supabase error:", e); }
+            } catch (e) { console.error("Firebase error:", e); }
         }
         // Fallback
         return localStorage.getItem(KEYS.LIVE_MEMORY) || "";
     },
     
     clearLiveMemory: async () => {
-        if (isSupabaseConfigured()) {
+        const owner_id = getOwnerId();
+        if (owner_id) {
             try {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    await supabase.from('live_memory').delete().eq('owner_id', owner_id).eq('key', 'live_memory_1');
-                }
-            } catch (e) { console.error("Supabase error:", e); }
+                const q = query(collection(db, 'live_memory'), where('owner_id', '==', owner_id), where('key', '==', 'live_memory_1'));
+                const querySnapshot = await getDocs(q);
+                querySnapshot.forEach(async (d) => {
+                    await deleteDoc(doc(db, 'live_memory', d.id));
+                });
+            } catch (e) { console.error("Firebase error:", e); }
         }
         localStorage.removeItem(KEYS.LIVE_MEMORY);
     },
 
     // --- CHAT COMPANION & LONG TERM MEMORY ---
     getOrCreateChatSession: async (owner_id: string) => {
-        const { data } = await supabase.from('chat_sessions').select('id').eq('owner_id', owner_id).order('created_at', { ascending: false }).limit(1).single();
-        if (data) return data.id;
-        const { data: newSession } = await supabase.from('chat_sessions').insert([{ owner_id, title: 'Default Session' }]).select('id').single();
-        return newSession?.id;
+        const q = query(collection(db, 'chat_sessions'), where('owner_id', '==', owner_id));
+        const querySnapshot = await getDocs(q);
+        const sessions: any[] = [];
+        querySnapshot.forEach((doc) => {
+            sessions.push({ id: doc.id, ...doc.data() });
+        });
+        if (sessions.length > 0) {
+            return sessions.sort((a, b) => b.created_at - a.created_at)[0].id;
+        }
+        
+        const newDocRef = doc(collection(db, 'chat_sessions'));
+        await setDoc(newDocRef, { id: newDocRef.id, owner_id, title: 'Default Session', created_at: Date.now() });
+        return newDocRef.id;
     },
 
     saveChatHistory: async (messages: any[]) => {
-        if (isSupabaseConfigured()) {
+        const owner_id = getOwnerId();
+        if (owner_id) {
             try {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    const session_id = await StorageService.getOrCreateChatSession(owner_id);
-                    if (session_id) {
-                        // For simplicity, we store the full array in a single live_memory key 
-                        // AND we append the latest message to chat_history for the DB schema
-                        const { data: existing } = await supabase.from('live_memory').select('id').eq('owner_id', owner_id).eq('key', 'chat_history_1').single();
-                        if (existing) {
-                            await supabase.from('live_memory').update({ value: { messages } }).eq('id', existing.id);
-                        } else {
-                            await supabase.from('live_memory').insert([{ owner_id, key: 'chat_history_1', value: { messages } }]);
-                        }
+                const session_id = await StorageService.getOrCreateChatSession(owner_id);
+                if (session_id) {
+                    const cleanMessages = JSON.parse(JSON.stringify(messages));
+                    const q = query(collection(db, 'live_memory'), where('owner_id', '==', owner_id), where('key', '==', 'chat_history_1'));
+                    const querySnapshot = await getDocs(q);
+                    if (!querySnapshot.empty) {
+                        const docId = querySnapshot.docs[0].id;
+                        await updateDoc(doc(db, 'live_memory', docId), { value: { messages: cleanMessages } });
+                    } else {
+                        const newDocRef = doc(collection(db, 'live_memory'));
+                        await setDoc(newDocRef, { id: newDocRef.id, owner_id, key: 'chat_history_1', value: { messages: cleanMessages } });
+                    }
 
-                        // Also insert the latest message into chat_history if it's new
-                        if (messages.length > 0) {
-                            const latest = messages[messages.length - 1];
-                            // Check if it exists by checking metadata
-                            const { data: existingMsg } = await supabase.from('chat_history').select('id').eq('session_id', session_id).eq('metadata->>client_id', latest.id).single();
-                            if (!existingMsg) {
-                                await supabase.from('chat_history').insert([{
-                                    session_id,
-                                    owner_id,
-                                    role: latest.role,
-                                    content: latest.content,
-                                    metadata: { client_id: latest.id },
-                                    created_at: new Date().toISOString()
-                                }]);
-                            }
+                    if (cleanMessages.length > 0) {
+                        const latest = cleanMessages[cleanMessages.length - 1];
+                        const msgQ = query(collection(db, 'chat_history'), where('session_id', '==', session_id), where('owner_id', '==', owner_id));
+                        const msgSnapshot = await getDocs(msgQ);
+                        let exists = false;
+                        msgSnapshot.forEach((d) => {
+                            if (d.data().metadata?.client_id === latest.id) exists = true;
+                        });
+                        
+                        if (!exists) {
+                            const newDocRef = doc(collection(db, 'chat_history'));
+                            await setDoc(newDocRef, {
+                                id: newDocRef.id,
+                                session_id,
+                                owner_id,
+                                role: latest.role,
+                                content: latest.content,
+                                metadata: { client_id: latest.id },
+                                created_at: Date.now()
+                            });
                         }
                     }
                 }
-            } catch (e) { console.error("Supabase error:", e); }
+            } catch (e) { console.error("Firebase error:", e); }
         }
         // Fallback
         await set(KEYS.CHAT_HISTORY, messages);
-        
-        // Trigger consolidation if history gets too long
-        if (messages.length > 10 && messages.length % 5 === 0) {
-            await StorageService.consolidateMemory(messages);
-        }
     },
 
     getChatHistory: async (): Promise<any[]> => {
-        if (isSupabaseConfigured()) {
+        const owner_id = getOwnerId();
+        if (owner_id) {
             try {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    const { data, error } = await supabase.from('live_memory').select('value').eq('owner_id', owner_id).eq('key', 'chat_history_1').single();
-                    if (!error && data && data.value) return (data.value as any).messages || [];
+                const q = query(collection(db, 'live_memory'), where('owner_id', '==', owner_id), where('key', '==', 'chat_history_1'));
+                const querySnapshot = await getDocs(q);
+                if (!querySnapshot.empty) {
+                    return querySnapshot.docs[0].data().value?.messages || [];
                 }
-            } catch (e) { console.error("Supabase error:", e); }
+            } catch (e) { console.error("Firebase error:", e); }
         }
         // Fallback
         try {
@@ -421,78 +432,115 @@ export const StorageService = {
         } catch (e) { return []; }
     },
 
-    consolidateMemory: async (messages: any[]) => {
-        try {
-            const recentUserMsgs = messages.filter(m => m.role === 'user').slice(-3).map(m => m.content).join(" | ");
-            if (!recentUserMsgs) return;
+    clearChatHistory: async () => {
+        const owner_id = getOwnerId();
+        if (owner_id) {
+            try {
+                const q = query(collection(db, 'live_memory'), where('owner_id', '==', owner_id), where('key', '==', 'chat_history_1'));
+                const querySnapshot = await getDocs(q);
+                querySnapshot.forEach(async (d) => {
+                    await deleteDoc(doc(db, 'live_memory', d.id));
+                });
+            } catch (e) { console.error("Firebase error:", e); }
+        }
+        await set(KEYS.CHAT_HISTORY, []);
+    },
 
-            const summary = `[${new Date().toLocaleDateString()}] User discussed: ${recentUserMsgs.substring(0, 100)}...`;
+    saveToLongTermMemory: async (content: string) => {
+        const owner_id = getOwnerId();
+        if (owner_id) {
+            try {
+                const embedding = await generateEmbedding(content);
+                const newDocRef = doc(collection(db, 'long_term_memory'));
+                await setDoc(newDocRef, {
+                    id: newDocRef.id,
+                    owner_id,
+                    content,
+                    embedding,
+                    created_at: Date.now()
+                });
+            } catch (e) { console.error("Firebase error:", e); }
+        }
+        
+        // Fallback
+        try {
+            const current = await get(KEYS.LONG_TERM_MEMORY) || [];
+            const embedding = await generateEmbedding(content);
+            const newItem = { id: Date.now().toString(), content, embedding, timestamp: new Date().toISOString() };
+            await set(KEYS.LONG_TERM_MEMORY, [...current, newItem]);
+        } catch (e) { console.error("Failed to save to long term memory", e); }
+    },
+
+    queryLongTermMemory: async (queryText: string, topK: number = 3): Promise<string[]> => {
+        try {
+            const queryEmbedding = await generateEmbedding(queryText);
             
-            if (isSupabaseConfigured()) {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    const embedding = await generateEmbedding(summary);
-                    await supabase.from('long_term_memory').insert([{
-                        owner_id,
-                        content: summary,
-                        embedding: embedding,
-                        created_at: new Date().toISOString()
-                    }]);
-                }
+            const owner_id = getOwnerId();
+            let memories: any[] = [];
+            
+            if (owner_id) {
+                try {
+                    const q = query(collection(db, 'long_term_memory'), where('owner_id', '==', owner_id));
+                    const querySnapshot = await getDocs(q);
+                    querySnapshot.forEach((doc) => {
+                        memories.push(doc.data());
+                    });
+                } catch (e) { console.error("Firebase error:", e); }
+            } else {
+                memories = await get(KEYS.LONG_TERM_MEMORY) || [];
             }
-            
-            // Fallback
-            const currentLTM = await StorageService.getRelevantMemories();
-            const updatedLTM = [summary, ...currentLTM].slice(0, 10);
-            await set(KEYS.LONG_TERM_MEMORY, updatedLTM);
+
+            if (memories.length === 0) return [];
+
+            // Cosine similarity
+            const dotProduct = (a: number[], b: number[]) => a.reduce((sum, val, i) => sum + val * b[i], 0);
+            const magnitude = (a: number[]) => Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
+            const cosineSimilarity = (a: number[], b: number[]) => dotProduct(a, b) / (magnitude(a) * magnitude(b));
+
+            const scoredMemories = memories.map((m: any) => ({
+                content: m.content,
+                score: cosineSimilarity(queryEmbedding, m.embedding)
+            }));
+
+            scoredMemories.sort((a, b) => b.score - a.score);
+            return scoredMemories.slice(0, topK).map(m => m.content);
         } catch (e) {
-            console.error("LTM Consolidation Failed", e);
+            console.error("Failed to query long term memory", e);
+            return [];
         }
     },
 
-    getRelevantMemories: async (queryEmbedding?: number[]): Promise<string[]> => {
-        if (isSupabaseConfigured()) {
+    getRelevantMemories: async (): Promise<string[]> => {
+        const owner_id = getOwnerId();
+        if (owner_id) {
             try {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    if (queryEmbedding) {
-                        try {
-                            const { data, error } = await supabase.rpc('match_memories', {
-                                query_embedding: queryEmbedding,
-                                match_threshold: 0.7,
-                                match_count: 5
-                            });
-                            if (!error && data && data.length > 0) return data.map((d: any) => d.content);
-                        } catch (rpcError) {
-                            console.log("RPC match_memories failed or not found, falling back to latest memories");
-                        }
-                    }
-                    const { data } = await supabase.from('long_term_memory').select('content').eq('owner_id', owner_id).order('created_at', { ascending: false }).limit(5);
-                    if (data) return data.map((d: any) => d.content);
-                }
-            } catch (e) { console.error("Supabase error:", e); }
+                const q = query(collection(db, 'long_term_memory'), where('owner_id', '==', owner_id), orderBy('created_at', 'desc'), limit(10));
+                const querySnapshot = await getDocs(q);
+                const memories: string[] = [];
+                querySnapshot.forEach((doc) => {
+                    memories.push(doc.data().content);
+                });
+                return memories;
+            } catch (e) { console.error("Firebase error:", e); }
         }
         // Fallback
         try {
             const data = await get(KEYS.LONG_TERM_MEMORY);
-            return data || [];
+            return (data || []).map((m: any) => m.content).slice(-10);
         } catch (e) { return []; }
     },
 
     clearLongTermMemory: async () => {
-        if (isSupabaseConfigured()) {
+        const owner_id = getOwnerId();
+        if (owner_id) {
             try {
-                const owner_id = await getOwnerId();
-                if (owner_id) {
-                    await supabase.from('long_term_memory').delete().eq('owner_id', owner_id);
-                    await supabase.from('live_memory').delete().eq('owner_id', owner_id).eq('key', 'chat_history_1');
-                    await supabase.from('chat_history').delete().eq('owner_id', owner_id);
-                }
-            } catch (e) { console.error("Supabase error:", e); }
+                const q = query(collection(db, 'long_term_memory'), where('owner_id', '==', owner_id));
+                const querySnapshot = await getDocs(q);
+                querySnapshot.forEach(async (d) => {
+                    await deleteDoc(doc(db, 'long_term_memory', d.id));
+                });
+            } catch (e) { console.error("Firebase error:", e); }
         }
-        localStorage.removeItem(KEYS.LONG_TERM_MEMORY);
-        localStorage.removeItem(KEYS.CHAT_HISTORY);
         await set(KEYS.LONG_TERM_MEMORY, []);
-        await set(KEYS.CHAT_HISTORY, []);
     }
 };

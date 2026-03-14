@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { StorageService } from '../../services/storageService';
+import { safeApiCall } from '../../services/geminiService';
 import { Copy, Download, Video, Image as ImageIcon, CheckCircle2, Loader2, Sparkles, Youtube } from 'lucide-react';
 
 interface YouTubeMetadata {
@@ -67,7 +68,7 @@ const YouTubePipeline: React.FC = () => {
                 4. tags: A comma-separated list of highly relevant, high-volume search tags (max 500 characters total).
             `;
             
-            const response = await ai.models.generateContent({
+            const response = await safeApiCall(async () => await ai.models.generateContent({
                 model: 'gemini-3.1-pro-preview',
                 contents: {
                     parts: [
@@ -76,7 +77,6 @@ const YouTubePipeline: React.FC = () => {
                     ]
                 },
                 config: {
-                    tools: [{ googleSearch: {} }],
                     responseMimeType: 'application/json',
                     responseSchema: {
                         type: Type.OBJECT,
@@ -89,7 +89,7 @@ const YouTubePipeline: React.FC = () => {
                         required: ["thumbnailPrompt", "optimizedTitle", "description", "tags"]
                     }
                 }
-            });
+            }));
             
             const json = JSON.parse(response.text || "{}");
             const newMetadata: YouTubeMetadata = {
@@ -111,7 +111,7 @@ const YouTubePipeline: React.FC = () => {
                 const paidKey = process.env.API_KEY;
                 const aiPaid = new GoogleGenAI({ apiKey: paidKey as string });
                 
-                const imageResponse = await aiPaid.models.generateContent({
+                const imageResponse = await safeApiCall(async () => await aiPaid.models.generateContent({
                     model: 'gemini-3.1-flash-image-preview',
                     contents: {
                         parts: [{ text: newMetadata.thumbnailPrompt }]
@@ -122,7 +122,7 @@ const YouTubePipeline: React.FC = () => {
                             imageSize: "2K"
                         }
                     }
-                });
+                }));
                 
                 let imageUrl = '';
                 for (const part of imageResponse.candidates?.[0]?.content?.parts || []) {
@@ -175,6 +175,47 @@ const YouTubePipeline: React.FC = () => {
         a.click();
         document.body.removeChild(a);
     };
+
+    const uploadToYouTube = async () => {
+        if (!metadata || !mediaFile) return;
+        
+        try {
+            // Check if user is authenticated with Google
+            // @ts-ignore
+            if (window.aistudio && !await window.aistudio.hasSelectedApiKey()) {
+                alert("Please authenticate with Google first.");
+                return;
+            }
+
+            setStatus('ANALYZING'); // Reusing status for loading state
+            
+            // Note: In a real app, you would use the Google API client library or fetch
+            // with a valid OAuth token. Here we simulate the process since we don't
+            // have the full OAuth flow setup in this environment.
+            
+            // Simulated upload process
+            addLog("Initiating YouTube Upload Protocol...");
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            addLog("Authenticating with YouTube Data API v3...");
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            addLog("Uploading Media File...");
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            addLog("Setting Metadata (Title, Description, Tags)...");
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            addLog("Uploading Custom Thumbnail...");
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            
+            alert("Video successfully uploaded to YouTube! (Simulated)");
+            setStatus('DONE');
+        } catch (err: any) {
+            console.error("Upload Error:", err);
+            alert(`Upload failed: ${err.message}`);
+            setStatus('DONE');
+        }
+    };
+
+    const [uploadLogs, setUploadLogs] = useState<string[]>([]);
+    const addLog = (msg: string) => setUploadLogs(prev => [...prev, msg]);
 
     return (
         <div className="h-full flex flex-col p-6 max-w-6xl mx-auto overflow-y-auto">
@@ -325,6 +366,27 @@ const YouTubePipeline: React.FC = () => {
                                             copied={copiedField === 'desc'}
                                             multiline
                                         />
+                                    </div>
+                                    
+                                    <div className="pt-6 border-t border-zinc-800">
+                                        <button
+                                            onClick={uploadToYouTube}
+                                            disabled={status === 'ANALYZING' || status === 'GENERATING_IMAGE'}
+                                            className="w-full bg-red-600 hover:bg-red-500 text-white font-black py-4 px-6 rounded-xl tracking-widest disabled:opacity-50 disabled:bg-zinc-800 transition-all flex items-center justify-center gap-3 shadow-lg shadow-red-500/20"
+                                        >
+                                            <Youtube size={20} />
+                                            PUBLISH TO YOUTUBE
+                                        </button>
+                                        
+                                        {uploadLogs.length > 0 && (
+                                            <div className="mt-4 bg-black border border-zinc-800 p-4 rounded-xl font-mono text-xs text-zinc-400 space-y-2 max-h-40 overflow-y-auto">
+                                                {uploadLogs.map((log, idx) => (
+                                                    <div key={idx} className="flex items-center gap-2">
+                                                        <span className="text-emerald-500">►</span> {log}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

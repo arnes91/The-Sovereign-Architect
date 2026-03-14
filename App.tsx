@@ -4,7 +4,8 @@ import { View } from './types';
 import Sidebar from './components/layout/Sidebar';
 import { ModuleGuard } from './components/core/ModuleGuard';
 import { Auth } from './components/Auth';
-import { supabase } from './services/supabaseClient';
+import { auth } from './firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 // Module Imports
 import Dashboard from './components/Dashboard';
@@ -22,32 +23,17 @@ import YouTubePipeline from './components/modules/YouTubePipeline';
 import AdinsPlayground from './components/modules/AdinsPlayground';
 import ShowcaseController from './components/modules/ShowcaseController';
 
-const isSupabaseConfigured = () => {
-    return import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_URL !== 'https://placeholder.supabase.co';
-};
-
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) {
-        setLoading(false);
-        return;
-    }
-    
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setSession(user);
       setLoading(false);
     });
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => unsubscribe();
   }, []);
 
   const [currentView, setCurrentView] = useState<View>(() => {
@@ -109,7 +95,7 @@ const App: React.FC = () => {
       return <div className="h-screen w-screen bg-black flex items-center justify-center text-white">INITIALIZING SOVEREIGN CORE...</div>;
   }
 
-  if (isSupabaseConfigured() && !session) {
+  if (!session) {
       return <Auth onLogin={() => {}} />;
   }
 

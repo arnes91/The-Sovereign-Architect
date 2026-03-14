@@ -1,0 +1,160 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+       return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+       return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isDocOwner() {
+       return isAuthenticated() && request.auth.uid == resource.data.owner_id;
+    }
+    
+    function uidUnchanged() {
+       return !('owner_id' in request.resource.data) ||
+         request.resource.data.owner_id == request.auth.uid;
+    }
+    
+    function uidNotModified() {
+       return !('owner_id' in request.resource.data) ||
+         request.resource.data.owner_id == resource.data.owner_id;
+    }
+    
+    function hasRequiredFields(fields) {
+       return request.resource.data.keys().hasAll(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    function isValidKnowledgeItem(data) {
+      return hasRequiredFields(['id', 'owner_id', 'title', 'description']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() < 100 &&
+             data.owner_id is string && data.owner_id.size() > 0 && data.owner_id.size() < 100 &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.description is string && data.description.size() > 0 && data.description.size() < 50000;
+    }
+
+    function isValidDBZHistoryItem(data) {
+      return hasRequiredFields(['owner_id', 'operation', 'payload', 'created_at']) &&
+             data.owner_id is string && data.owner_id.size() > 0 && data.owner_id.size() < 100 &&
+             data.operation is string && data.operation.size() > 0 && data.operation.size() < 100 &&
+             data.payload is map &&
+             data.created_at is number;
+    }
+
+    function isValidImageHistoryItem(data) {
+      return hasRequiredFields(['owner_id', 'prompt', 'storage_path', 'created_at']) &&
+             data.owner_id is string && data.owner_id.size() > 0 && data.owner_id.size() < 100 &&
+             data.prompt is string && data.prompt.size() > 0 && data.prompt.size() < 5000 &&
+             data.storage_path is string && data.storage_path.size() > 0 && data.storage_path.size() < 2000 &&
+             data.created_at is number;
+    }
+
+    function isValidAnalyticsHistoryItem(data) {
+      return hasRequiredFields(['owner_id', 'event_name', 'properties', 'created_at']) &&
+             data.owner_id is string && data.owner_id.size() > 0 && data.owner_id.size() < 100 &&
+             data.event_name is string && data.event_name.size() > 0 && data.event_name.size() < 100 &&
+             data.properties is map &&
+             data.created_at is number;
+    }
+
+    function isValidLiveMemoryItem(data) {
+      return hasRequiredFields(['owner_id', 'key', 'value']) &&
+             data.owner_id is string && data.owner_id.size() > 0 && data.owner_id.size() < 100 &&
+             data.key is string && data.key.size() > 0 && data.key.size() < 100 &&
+             data.value is map;
+    }
+
+    function isValidChatSession(data) {
+      return hasRequiredFields(['owner_id', 'title', 'created_at']) &&
+             data.owner_id is string && data.owner_id.size() > 0 && data.owner_id.size() < 100 &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.created_at is number;
+    }
+
+    function isValidChatMessage(data) {
+      return hasRequiredFields(['session_id', 'owner_id', 'role', 'content', 'created_at']) &&
+             data.session_id is string && data.session_id.size() > 0 && data.session_id.size() < 100 &&
+             data.owner_id is string && data.owner_id.size() > 0 && data.owner_id.size() < 100 &&
+             data.role is string && data.role.size() > 0 && data.role.size() < 50 &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 50000 &&
+             data.created_at is number;
+    }
+
+    function isValidLongTermMemoryItem(data) {
+      return hasRequiredFields(['owner_id', 'content', 'created_at']) &&
+             data.owner_id is string && data.owner_id.size() > 0 && data.owner_id.size() < 100 &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 50000 &&
+             data.created_at is number;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /knowledge_base/{itemId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && uidUnchanged() && isValidKnowledgeItem(request.resource.data);
+      allow update: if isDocOwner() && uidNotModified() && isValidKnowledgeItem(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    match /dbz_history/{itemId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && uidUnchanged() && isValidDBZHistoryItem(request.resource.data);
+      allow update: if isDocOwner() && uidNotModified() && isValidDBZHistoryItem(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    match /image_history/{itemId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && uidUnchanged() && isValidImageHistoryItem(request.resource.data);
+      allow update: if isDocOwner() && uidNotModified() && isValidImageHistoryItem(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    match /analytics_history/{itemId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && uidUnchanged() && isValidAnalyticsHistoryItem(request.resource.data);
+      allow update: if isDocOwner() && uidNotModified() && isValidAnalyticsHistoryItem(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    match /live_memory/{itemId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && uidUnchanged() && isValidLiveMemoryItem(request.resource.data);
+      allow update: if isDocOwner() && uidNotModified() && isValidLiveMemoryItem(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    match /chat_sessions/{sessionId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && uidUnchanged() && isValidChatSession(request.resource.data);
+      allow update: if isDocOwner() && uidNotModified() && isValidChatSession(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    match /chat_history/{messageId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && uidUnchanged() && isValidChatMessage(request.resource.data);
+      allow update: if isDocOwner() && uidNotModified() && isValidChatMessage(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+
+    match /long_term_memory/{memoryId} {
+      allow read: if isDocOwner();
+      allow create: if isAuthenticated() && uidUnchanged() && isValidLongTermMemoryItem(request.resource.data);
+      allow update: if isDocOwner() && uidNotModified() && isValidLongTermMemoryItem(request.resource.data);
+      allow delete: if isDocOwner();
+    }
+  }
+}

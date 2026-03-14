@@ -143,7 +143,7 @@ High correlation between *YouTube Shorts* views and *Spotify* surges.
               id: Date.now().toString(),
               title: `Analysis: ${files.map(f => f.name).join(', ')}`,
               date: Date.now(),
-              summary: result?.substring(0, 100) + "..." || "",
+              summary: result || "",
               tags: files.map(f => f.type)
           };
           await StorageService.saveAnalyticsReport(newReport);
@@ -254,8 +254,29 @@ High correlation between *YouTube Shorts* views and *Spotify* surges.
                           </p>
                       </div>
                   ) : analysis ? (
-                      <div className="prose prose-invert prose-sm max-w-none">
-                          <ReactMarkdown>{analysis}</ReactMarkdown>
+                      <div className="flex flex-col h-full">
+                          <div className="flex justify-end mb-4">
+                              <button 
+                                  onClick={async () => {
+                                      const newReport: AnalyticsReport = {
+                                          id: Date.now().toString(),
+                                          title: `Analysis: ${files.map(f => f.name).join(', ')}`,
+                                          date: Date.now(),
+                                          summary: analysis,
+                                          tags: files.map(f => f.type)
+                                      };
+                                      await StorageService.saveAnalyticsReport(newReport);
+                                      setReports(await StorageService.getAnalyticsReports());
+                                      alert('Report saved to history.');
+                                  }}
+                                  className="text-xs font-mono bg-cyber-green/20 text-cyber-green border border-cyber-green px-3 py-1 rounded hover:bg-cyber-green hover:text-black transition-colors"
+                              >
+                                  SAVE REPORT
+                              </button>
+                          </div>
+                          <div className="prose prose-invert prose-sm max-w-none flex-1 overflow-y-auto">
+                              <ReactMarkdown>{analysis}</ReactMarkdown>
+                          </div>
                       </div>
                   ) : (
                       <div className="h-full flex flex-col items-center justify-center text-zinc-700 opacity-50">

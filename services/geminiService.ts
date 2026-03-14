@@ -52,10 +52,17 @@ export function decodePCM(base64: string, ctx: AudioContext, sampleRate: number 
 /**
  * Wraps API calls to handle Geo-Blocking (403) and other API errors gracefully.
  */
-async function safeApiCall<T>(apiCall: () => Promise<T>): Promise<T> {
+export async function safeApiCall<T>(apiCall: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
     try {
         return await apiCall();
     } catch (error: any) {
+        // Handle Rate Limiting (429)
+        if ((error.status === 429 || error.code === 429) && retries > 0) {
+            console.warn(`Gemini API Rate Limited (429). Retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return safeApiCall(apiCall, retries - 1, delay * 2);
+        }
+
         console.error("Gemini API Error:", error);
         
         const errorMsg = error.toString().toLowerCase();
@@ -244,8 +251,8 @@ export const generateEmbedding = async (text: string) => {
     return safeApiCall(async () => {
         const ai = getAI();
         const response = await ai.models.embedContent({
-            model: 'text-embedding-004',
-            contents: text,
+            model: 'gemini-embedding-2-preview',
+            contents: [text],
         });
         return response.embeddings?.[0]?.values || [];
     });
@@ -365,7 +372,7 @@ export const streamStrategyChat = async function* (history: any[], newMessage: s
           tools: [{ googleSearch: {} }]
       };
   } else if (mode === 'FAST') {
-      model = 'gemini-2.5-flash-lite';
+      model = 'gemini-3.1-flash-lite-preview';
   } else if (mode === 'STANDARD') {
       model = 'gemini-3-flash-preview';
   }

@@ -414,6 +414,22 @@ const LiveUplink: React.FC = () => {
             )}
         </div>
       </div>
+      
+      {/* Small Camera Preview */}
+      {isCameraActive && (
+          <div className="fixed bottom-24 right-4 w-32 h-24 md:w-48 md:h-36 border-2 border-[#ff00ff] rounded-lg overflow-hidden z-50 shadow-[0_0_15px_rgba(255,0,255,0.5)]">
+              <video 
+                  ref={videoRef} 
+                  autoPlay 
+                  playsInline 
+                  muted 
+                  className="w-full h-full object-cover"
+              />
+              <div className="absolute top-1 left-1 bg-black/70 text-[#ff00ff] text-[8px] md:text-[10px] font-mono px-1 border border-[#ff00ff]/50">
+                  REC // UPLINK
+              </div>
+          </div>
+      )}
     </div>
   );
 };
