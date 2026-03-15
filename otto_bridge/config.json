@@ -1,0 +1,30 @@
+{
+  "version": "1.0.0",
+  "bridge_name": "Otto Bridge",
+  "description": "Bidirectional sync layer between AutoGPT Platform agents and local Brzi Studio systems",
+  "protocols": {
+    "heartbeat_interval_minutes": 30,
+    "inbox_poll_interval_minutes": 5,
+    "outbox_retention_days": 30,
+    "max_queue_size": 100
+  },
+  "connected_systems": {
+    "autogpt_platform": {
+      "agents": ["ELI Control Tower", "Content Publishing Strategist", "YouTube Video Research", "Music Artist Performance Report"],
+      "copilot": "Otto"
+    },
+    "local_systems": {
+      "openclaw": { "status": "planned", "capabilities": ["browser_automation", "web_scraping"] },
+      "antigravity": { "status": "planned", "capabilities": ["local_ai", "file_processing"] },
+      "brzi_studio": { "status": "active", "drive": "A:", "spine": "BRZI_STUDIO" }
+    },
+    "cloud_services": {
+      "supabase": "active",
+      "firebase_auth": "active",
+      "youtube_api": "active",
+      "google_cloud": ["youtube-analytics", "gmail-readonly", "calendar-full", "drive-full"]
+    }
+  },
+  "created_at": "2026-03-15T00:00:00Z",
+  "created_by": "Otto (AutoGPT Co-Pilot)"
+}
