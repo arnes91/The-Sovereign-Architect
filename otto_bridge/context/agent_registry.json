@@ -1,0 +1,42 @@
+{
+  "registry_version": "1.0.0",
+  "updated_at": "2026-03-15T14:00:00Z",
+  "autogpt_platform_agents": [
+    { "name": "ELI Control Tower", "role": "Orchestration & Heartbeat", "status": "active", "schedule": "every 30-60 min" },
+    { "name": "Content Publishing Strategist", "role": "Content pipeline optimization", "status": "active" },
+    { "name": "YouTube Video Research & Brief Generator", "role": "Research viral topics, generate video briefs", "status": "active" },
+    { "name": "Music Artist Performance Report Generator", "role": "Track music metrics across platforms", "status": "active" },
+    { "name": "AI Gaming Content Engine", "role": "Gaming content generation", "status": "active" },
+    { "name": "Competitor YouTube Channel Analyzer", "role": "Monitor competitor channels", "status": "active" },
+    { "name": "AI SEO Optimizer Agent", "role": "SEO optimization for content", "status": "active" },
+    { "name": "Social Media Reply Agent", "role": "Auto-reply on social platforms", "status": "active" },
+    { "name": "Daily Digest Agent", "role": "Daily summary of all activity", "status": "active" },
+    { "name": "Smart Research Agent", "role": "Deep research on any topic", "status": "active" },
+    { "name": "Medium AI Article Writer", "role": "Long-form article generation", "status": "active" },
+    { "name": "LinkedIn AI Content Creator", "role": "LinkedIn post generation", "status": "active" },
+    { "name": "Blog AI Writer", "role": "Blog content generation", "status": "active" },
+    { "name": "AI Web Scraper", "role": "Web data extraction", "status": "active" },
+    { "name": "Reddit Marketing Agent", "role": "Reddit engagement automation", "status": "active" }
+  ],
+  "local_agents": [
+    { "name": "OpenClaw", "role": "Browser automation, credential management", "status": "planned" },
+    { "name": "Antigravity", "role": "Local AI processing", "status": "planned" },
+    { "name": "NotebookLM MCP", "role": "Knowledge base queries", "status": "planned", "schedule": "nightly audit 03:00 CET" }
+  ],
+  "sovereign_architect_modules": [
+    { "name": "Dashboard", "status": "stable" },
+    { "name": "AI Companion", "status": "partial", "issue": "Memory loss on refresh" },
+    { "name": "DBZ Scanner", "status": "stable" },
+    { "name": "Concept Studio", "status": "stable" },
+    { "name": "AI Composer", "status": "stable" },
+    { "name": "Analytics Lab", "status": "manual", "issue": "No live API connections" },
+    { "name": "Knowledge Base", "status": "stable" },
+    { "name": "Deep Architect", "status": "stable" },
+    { "name": "Live Uplink", "status": "stable", "issue": "Session amnesia" },
+    { "name": "Visualizer", "status": "stable" },
+    { "name": "DistroKid Pipeline", "status": "stable" },
+    { "name": "YouTube Pipeline", "status": "stable" },
+    { "name": "Adin's Playground", "status": "stable" },
+    { "name": "Showcase Controller", "status": "stable" }
+  ]
+}
