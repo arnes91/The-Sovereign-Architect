@@ -48,10 +48,10 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
 
   // SAVE TO STORAGE ON CHANGE
   useEffect(() => {
-      if (messages.length > 0) {
+      if (messages.length > 0 && !isStreaming) {
           StorageService.saveChatHistory(messages);
       }
-  }, [messages]);
+  }, [messages, isStreaming]);
 
   // --- DEMO TRIGGER ---
   useEffect(() => {

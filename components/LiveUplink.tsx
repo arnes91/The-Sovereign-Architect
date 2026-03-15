@@ -275,29 +275,47 @@ const LiveUplink: React.FC = () => {
               videoRef.current.srcObject = stream;
               setIsCameraActive(true);
               
-              const sendFrame = () => {
-                  if(!canvasRef.current || !videoRef.current) return;
-                  const ctx = canvasRef.current.getContext('2d');
-                  if(!ctx) return;
-                  canvasRef.current.width = videoRef.current.videoWidth / 4; 
-                  canvasRef.current.height = videoRef.current.videoHeight / 4;
-                  ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
-                  const base64 = canvasRef.current.toDataURL('image/jpeg', 0.5).split(',')[1];
+              // Wait for video to be ready before starting capture loop
+              videoRef.current.onloadedmetadata = () => {
+                  videoRef.current?.play();
                   
-                  if (sessionPromiseRef.current) {
-                    sessionPromiseRef.current.then(session => {
-                        session.sendRealtimeInput({
-                            media: { mimeType: 'image/jpeg', data: base64 }
-                        });
-                    });
-                  }
+                  const sendFrame = () => {
+                      if(!canvasRef.current || !videoRef.current || !isConnected) return;
+                      
+                      // Only send if video has valid dimensions
+                      if (videoRef.current.videoWidth > 0 && videoRef.current.videoHeight > 0) {
+                          const ctx = canvasRef.current.getContext('2d');
+                          if(!ctx) return;
+                          
+                          // Scale down for performance
+                          canvasRef.current.width = videoRef.current.videoWidth / 4; 
+                          canvasRef.current.height = videoRef.current.videoHeight / 4;
+                          
+                          ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
+                          const base64 = canvasRef.current.toDataURL('image/jpeg', 0.5).split(',')[1];
+                          
+                          if (sessionPromiseRef.current) {
+                              sessionPromiseRef.current.then(session => {
+                                  session.sendRealtimeInput({
+                                      media: { mimeType: 'image/jpeg', data: base64 }
+                                  });
+                              }).catch(err => console.error("Error sending frame:", err));
+                          }
+                      }
+                      
+                      // Throttle frame sending to roughly 1fps to avoid overwhelming the connection
+                      cameraIntervalRef.current = setTimeout(() => {
+                          requestAnimationFrame(sendFrame);
+                      }, 1000);
+                  };
+                  
+                  // Start the capture loop
+                  requestAnimationFrame(sendFrame);
               };
-              
-              // Send frame every 2 seconds
-              cameraIntervalRef.current = setInterval(sendFrame, 2000); 
           }
       } catch (e) {
-          addLog("Camera blocked.");
+          addLog("Camera blocked or unavailable.");
+          console.error("Camera error:", e);
       }
   };
 
@@ -356,6 +374,17 @@ const LiveUplink: React.FC = () => {
                       <div className="w-full h-24 bg-black border border-zinc-700 p-2 text-xs text-zinc-500 font-mono rounded overflow-y-auto whitespace-pre-wrap">
                           {savedMemory || 'No memory recorded.'}
                       </div>
+                  </div>
+                  <div className="flex justify-end pt-2">
+                      <button 
+                          onClick={() => {
+                              setShowSettings(false);
+                              addLog("SETTINGS APPLIED. RESTART REQUIRED.");
+                          }} 
+                          className="px-4 py-2 bg-[#39c5bb] text-black font-bold font-mono text-xs hover:bg-white transition-colors"
+                      >
+                          APPLY & CLOSE
+                      </button>
                   </div>
               </div>
           </div>

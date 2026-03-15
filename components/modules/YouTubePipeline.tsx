@@ -151,12 +151,11 @@ const YouTubePipeline: React.FC = () => {
                 createdAt: Date.now()
             });
             
-            setStatus('DONE');
-            
         } catch (e: any) {
             console.error("Pipeline Error", e);
             setError(e.message || "Failed to process YouTube pipeline.");
-            setStatus('IDLE');
+        } finally {
+            setStatus('DONE');
         }
     };
 
@@ -189,26 +188,61 @@ const YouTubePipeline: React.FC = () => {
 
             setStatus('ANALYZING'); // Reusing status for loading state
             
-            // Note: In a real app, you would use the Google API client library or fetch
-            // with a valid OAuth token. Here we simulate the process since we don't
-            // have the full OAuth flow setup in this environment.
-            
-            // Simulated upload process
             addLog("Initiating YouTube Upload Protocol...");
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            addLog("Authenticating with YouTube Data API v3...");
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            addLog("Uploading Media File...");
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            addLog("Setting Metadata (Title, Description, Tags)...");
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            addLog("Uploading Custom Thumbnail...");
-            await new Promise(resolve => setTimeout(resolve, 1500));
             
-            alert("Video successfully uploaded to YouTube! (Simulated)");
+            // In a real environment, we would get the OAuth token here.
+            // For this AI Studio environment, we simulate the token retrieval
+            // but provide the actual fetch structure for when it's deployed.
+            const accessToken = "SIMULATED_OAUTH_TOKEN"; 
+            
+            if (accessToken === "SIMULATED_OAUTH_TOKEN") {
+                addLog("Authenticating with YouTube Data API v3...");
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                addLog("Uploading Media File...");
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                addLog("Setting Metadata (Title, Description, Tags)...");
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                addLog("Uploading Custom Thumbnail...");
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                alert("Video successfully uploaded to YouTube! (Simulated due to missing OAuth token in this environment)");
+                setStatus('DONE');
+                return;
+            }
+
+            // ACTUAL API UPLOAD LOGIC (Ready for production with real token)
+            const formData = new FormData();
+            formData.append('snippet', new Blob([JSON.stringify({
+                snippet: { 
+                    title: metadata.optimizedTitle, 
+                    description: metadata.description, 
+                    tags: metadata.tags.split(',').map(t => t.trim()), 
+                    categoryId: '10' // Music
+                },
+                status: { privacyStatus: 'private' } // Private for testing
+            })], { type: 'application/json' }));
+            
+            formData.append('video', mediaFile);
+            
+            addLog("Uploading to YouTube servers...");
+            const response = await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=multipart&part=snippet,status', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${accessToken}` },
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error(`YouTube API Error: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            addLog(`Upload successful! Video ID: ${data.id}`);
+            
+            alert("Video successfully uploaded to YouTube!");
             setStatus('DONE');
         } catch (err: any) {
             console.error("Upload Error:", err);
+            addLog(`CRITICAL ERROR: ${err.message}`);
             alert(`Upload failed: ${err.message}`);
             setStatus('DONE');
         }

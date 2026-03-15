@@ -163,12 +163,11 @@ const UploadDeck: React.FC = () => {
                 createdAt: Date.now()
             });
             
-            setStatus('DONE');
-            
         } catch (e: any) {
             console.error("Pipeline Error", e);
             setError(e.message || "Failed to process release pipeline.");
-            setStatus('IDLE');
+        } finally {
+            setStatus('DONE');
         }
     };
 

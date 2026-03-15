@@ -25,6 +25,38 @@ const getOwnerId = () => {
 };
 
 export const StorageService = {
+    // --- Otto Copilot Config ---
+    saveOttoConfig: async (config: any) => {
+        const owner_id = getOwnerId();
+        if (owner_id) {
+            try {
+                const newDocRef = doc(collection(db, 'settings'), 'otto_config_' + owner_id);
+                await setDoc(newDocRef, {
+                    id: newDocRef.id,
+                    owner_id,
+                    key: 'otto_config',
+                    value: config,
+                    updated_at: Date.now()
+                });
+            } catch (e) { console.error("Firebase error:", e); }
+        }
+        await set('brzi_otto_config', config);
+    },
+
+    getOttoConfig: async (): Promise<any> => {
+        const owner_id = getOwnerId();
+        if (owner_id) {
+            try {
+                const q = query(collection(db, 'settings'), where('owner_id', '==', owner_id), where('key', '==', 'otto_config'));
+                const querySnapshot = await getDocs(q);
+                if (!querySnapshot.empty) {
+                    return querySnapshot.docs[0].data().value;
+                }
+            } catch (e) { console.error("Firebase error:", e); }
+        }
+        return get('brzi_otto_config');
+    },
+
     // --- Knowledge Base ---
     saveKnowledgeItem: async (item: KnowledgeItem) => {
         const owner_id = getOwnerId();
@@ -105,7 +137,18 @@ export const StorageService = {
         if (owner_id) {
             try {
                 const newDocRef = doc(collection(db, 'dbz_history'));
-                const payload = JSON.parse(JSON.stringify(scan)); // Remove undefined fields
+                let payload = JSON.parse(JSON.stringify(scan)); // Remove undefined fields
+                
+                // Prevent 1MB Firestore limit errors
+                let payloadString = JSON.stringify(payload);
+                if (payloadString.length > 900000) {
+                    delete payload.audioBase64;
+                    payloadString = JSON.stringify(payload);
+                    if (payloadString.length > 900000) {
+                        delete payload.imageUrl;
+                    }
+                }
+                
                 await setDoc(newDocRef, {
                     id: newDocRef.id,
                     owner_id,
@@ -154,6 +197,7 @@ export const StorageService = {
                     prompt: item.prompt,
                     model: (item as any).model || "unknown",
                     storage_path: item.url,
+                    aspectRatio: item.aspectRatio || '1:1',
                     created_at: Date.now()
                 });
             } catch (e) { console.error("Firebase error:", e); }
@@ -181,8 +225,9 @@ export const StorageService = {
                         id: doc.id,
                         prompt: d.prompt,
                         url: d.storage_path,
+                        aspectRatio: d.aspectRatio || '1:1',
                         model: d.model,
-                        timestamp: new Date(d.created_at).toISOString(),
+                        timestamp: d.created_at,
                         created_at: d.created_at
                     });
                 });
@@ -387,12 +432,14 @@ export const StorageService = {
 
                     if (cleanMessages.length > 0) {
                         const latest = cleanMessages[cleanMessages.length - 1];
-                        const msgQ = query(collection(db, 'chat_history'), where('session_id', '==', session_id), where('owner_id', '==', owner_id));
+                        const msgQ = query(
+                            collection(db, 'chat_history'), 
+                            where('session_id', '==', session_id), 
+                            where('owner_id', '==', owner_id),
+                            where('metadata.client_id', '==', latest.id)
+                        );
                         const msgSnapshot = await getDocs(msgQ);
-                        let exists = false;
-                        msgSnapshot.forEach((d) => {
-                            if (d.data().metadata?.client_id === latest.id) exists = true;
-                        });
+                        let exists = !msgSnapshot.empty;
                         
                         if (!exists) {
                             const newDocRef = doc(collection(db, 'chat_history'));

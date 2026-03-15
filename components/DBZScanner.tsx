@@ -151,10 +151,31 @@ const DBZScanner: React.FC = () => {
       try {
           if (!videoRef.current || !canvasRef.current) throw new Error("Camera Error");
           const ctx = canvasRef.current.getContext('2d');
-          canvasRef.current.width = videoRef.current.videoWidth;
-          canvasRef.current.height = videoRef.current.videoHeight;
-          ctx?.drawImage(videoRef.current, 0, 0);
-          const base64Img = canvasRef.current.toDataURL('image/jpeg', 0.7);
+          
+          // Scale down the image to prevent 1MB Firestore limit errors
+          const MAX_WIDTH = 400;
+          const MAX_HEIGHT = 400;
+          let width = videoRef.current.videoWidth;
+          let height = videoRef.current.videoHeight;
+          
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          
+          canvasRef.current.width = width;
+          canvasRef.current.height = height;
+          ctx?.drawImage(videoRef.current, 0, 0, width, height);
+          
+          // Use higher compression
+          const base64Img = canvasRef.current.toDataURL('image/jpeg', 0.5);
           setScannedImage(base64Img);
 
           const stats = await HumeService.simulateScan(base64Img);
@@ -358,6 +379,14 @@ Get scanned at Brzi.AI
                                   placeholder="Override the default DBZ scanner prompt..."
                                   className="w-full h-24 bg-zinc-900 border border-zinc-700 p-2 text-sm text-white font-mono rounded"
                               />
+                          </div>
+                          <div>
+                              <label className="block text-xs text-zinc-400 mb-1 font-mono">SAVED MEMORIES</label>
+                              <textarea 
+                                  placeholder="View or edit saved memories for this persona..."
+                                  className="w-full h-24 bg-zinc-900 border border-zinc-700 p-2 text-sm text-white font-mono rounded"
+                              />
+                              <p className="text-[10px] text-zinc-500 mt-1">Memories are used to provide context for future scans.</p>
                           </div>
                       </div>
                   )}
