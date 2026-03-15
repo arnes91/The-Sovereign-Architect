@@ -1,30 +1,94 @@
 {
-  "version": "1.0.0",
-  "bridge_name": "Otto Bridge",
-  "description": "Bidirectional sync layer between AutoGPT Platform agents and local Brzi Studio systems",
-  "protocols": {
-    "heartbeat_interval_minutes": 30,
-    "inbox_poll_interval_minutes": 5,
-    "outbox_retention_days": 30,
-    "max_queue_size": 100
-  },
+  "bridge_version": "1.1.0",
+  "updated": "2026-03-15T00:00:00Z",
+  "heartbeat_interval_minutes": 30,
+  "inbox_poll_minutes": 5,
   "connected_systems": {
     "autogpt_platform": {
-      "agents": ["ELI Control Tower", "Content Publishing Strategist", "YouTube Video Research", "Music Artist Performance Report"],
-      "copilot": "Otto"
+      "agents": [
+        "ELI Heartbeat Agent",
+        "Hedra Character Video Generator",
+        "Perplexity Research Agent",
+        "YouTube Analytics Agent"
+      ],
+      "blocks": [
+        "GitHub (10+ blocks)",
+        "Gmail (4 blocks: Read, Send, Labels, Thread)",
+        "Telegram (10 blocks)",
+        "Discord (10 blocks)",
+        "Reddit (10+ blocks)",
+        "YouTube/Ayrshare (2 blocks)",
+        "Perplexity (Sonar/Pro/Deep Research)",
+        "100+ LLM models",
+        "Image Gen (Nano Banana Pro, Flux, Ideogram)",
+        "Video Gen (Veo 3.1, Mochi, Luma)",
+        "Replicate Universal Runner",
+        "SendWebRequestBlock (custom HTTP for Hedra API)",
+        "MCP Servers (Notion, Linear, Stripe, Cloudflare, Atlassian)"
+      ]
     },
     "local_systems": {
-      "openclaw": { "status": "planned", "capabilities": ["browser_automation", "web_scraping"] },
-      "antigravity": { "status": "planned", "capabilities": ["local_ai", "file_processing"] },
-      "brzi_studio": { "status": "active", "drive": "A:", "spine": "BRZI_STUDIO" }
+      "openclaw": {
+        "status": "STANDBY",
+        "sync_via": "github_bridge"
+      },
+      "antigravity": {
+        "status": "OFFLINE",
+        "sync_via": "github_bridge"
+      },
+      "notebooklm_mcp": {
+        "status": "STANDBY",
+        "context_window_note": "Default OFF to save ~4000 tokens/request"
+      }
     },
     "cloud_services": {
-      "supabase": "active",
-      "firebase_auth": "active",
-      "youtube_api": "active",
-      "google_cloud": ["youtube-analytics", "gmail-readonly", "calendar-full", "drive-full"]
+      "supabase": {
+        "status": "ACTIVE",
+        "features": ["PostgreSQL", "pgvector", "Auth", "Storage"],
+        "pending": ["match_memories RPC deployment"]
+      },
+      "firebase": {
+        "status": "ACTIVE",
+        "features": ["Authentication"]
+      },
+      "gemini": {
+        "status": "ACTIVE",
+        "models": ["1.5 Flash", "2.0", "3.1 Pro", "3.1 Flash Image"],
+        "features": ["Chat", "Vision", "Audio", "TTS", "Image Gen", "Search Grounding"]
+      },
+      "hedra": {
+        "status": "ACTIVE",
+        "api_base": "https://api.hedra.com/web-app/public",
+        "auth_header": "x-api-key",
+        "credits": 1600,
+        "tier": "DUB Affiliate Partner/Ambassador",
+        "capabilities": [
+          "Character-3 omnimodal video generation",
+          "Text-to-Speech with voice cloning",
+          "Image generation (Sana, Flux)",
+          "Live Avatars (sub-100ms via LiveKit)",
+          "Grok Video, Kling 2.6, Veo 3.1 Fast"
+        ],
+        "resolution_options": {
+          "540p": "3 credits/sec",
+          "720p": "6 credits/sec"
+        },
+        "security_note": "ROTATE API KEY - was exposed in chat 2026-03-15"
+      },
+      "hume_ai": {
+        "status": "SIMULATED",
+        "pending": ["Backend proxy for real API calls"],
+        "features": ["Expression Measurement (48-dim)", "EVI", "TTS"]
+      },
+      "distrokid": {
+        "status": "ACTIVE",
+        "pipeline": "Audio → Gemini 3.1 Pro → metadata + cover art → Supabase"
+      }
     }
   },
-  "created_at": "2026-03-15T00:00:00Z",
-  "created_by": "Otto (AutoGPT Co-Pilot)"
+  "protocols": {
+    "hull_and_pod": true,
+    "zero_horizontal_deps": true,
+    "module_guard_isolation": true
+  }
 }
