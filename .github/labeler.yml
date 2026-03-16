@@ -1,0 +1,25 @@
+# .github/labeler.yml
+
+frontend:
+  - 'src/**/*'
+  - 'public/**/*'
+  - '*.tsx'
+  - '*.ts'
+  - '*.css'
+  - '*.html'
+
+backend-logic:
+  - 'services/**/*'
+  - 'api/**/*'
+
+infrastructure:
+  - '.github/**/*'
+  - 'package.json'
+  - 'package-lock.json'
+  - 'vite.config.ts'
+  - 'tsconfig.json'
+  - '.gitignore'
+
+documentation:
+  - '*.md'
+  - 'docs/**/*'
