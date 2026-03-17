@@ -1,0 +1,53 @@
+{
+  "version": "1.1.0",
+  "bridge_name": "Otto Bridge",
+  "description": "Bidirectional sync layer between AutoGPT platform agents and local Brzi AI systems",
+  "protocol": "Hull & Pod — Zero Horizontal Dependencies",
+  "last_updated": "2026-03-17T00:00:00Z",
+  "connected_systems": {
+    "autogpt_agents": {
+      "platform": "agpt.co",
+      "agents": [
+        {
+          "name": "ELI Heartbeat v2",
+          "id": "35f8592b-96cf-4a7a-8c7d-1dbf1aa650dd",
+          "type": "monitor",
+          "status": "active"
+        },
+        {
+          "name": "Hedra Character Video Generator",
+          "id": "1f47ff73-6bc0-4184-8b53-72fe2bdec338",
+          "type": "content_creation",
+          "status": "active"
+        }
+      ]
+    },
+    "local_systems": {
+      "openclaw": {
+        "status": "active",
+        "workspace": "local",
+        "git_remote": "pending_setup"
+      },
+      "antigravity": {
+        "status": "active",
+        "type": "orchestration_agent"
+      }
+    },
+    "cloud_services": {
+      "github": { "repo": "arnes91/The-Sovereign-Architect", "status": "connected" },
+      "gmail": { "status": "connected", "scope": "readonly" },
+      "supabase": { "status": "connected", "features": ["storage", "vectors", "auth"] },
+      "firebase": { "status": "connected", "features": ["auth"] },
+      "hedra": { "status": "connected", "credits": 1600, "model": "Character-3" },
+      "hume_ai": { "status": "planned", "needs": "backend_proxy" },
+      "distrokid": { "status": "working", "pipeline": "gemini_3.1_pro" },
+      "gemini": { "status": "connected", "models": ["1.5-pro", "2.0-flash", "3.1-pro"] }
+    }
+  },
+  "sync_protocol": {
+    "inbox": "otto_bridge/inbox/ — Commands from AutoGPT to local agents",
+    "outbox": "otto_bridge/outbox/ — Reports from local agents to AutoGPT",
+    "heartbeat": "otto_bridge/heartbeat.json — Updated by ELI Heartbeat agent",
+    "context": "otto_bridge/context/ — Shared knowledge and agent registry"
+  }
+}
