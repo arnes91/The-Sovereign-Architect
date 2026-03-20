@@ -1,53 +1,63 @@
 {
-  "version": "1.1.0",
-  "bridge_name": "Otto Bridge",
-  "description": "Bidirectional sync layer between AutoGPT platform agents and local Brzi AI systems",
-  "protocol": "Hull & Pod — Zero Horizontal Dependencies",
-  "last_updated": "2026-03-17T00:00:00Z",
-  "connected_systems": {
-    "autogpt_agents": {
-      "platform": "agpt.co",
+  "version": "1.2.0",
+  "protocol": "BRZI_SYNC_v1",
+  "updated": "2026-03-20T00:00:00Z",
+  "bridge": {
+    "name": "Otto Bridge",
+    "description": "Bidirectional sync layer between AutoGPT Platform (Otto) and local systems (EliClaw/Antigravity)",
+    "status": "ACTIVE",
+    "sync_interval_minutes": 15
+  },
+  "systems": {
+    "otto": {
+      "platform": "AutoGPT",
       "agents": [
         {
-          "name": "ELI Heartbeat v2",
-          "id": "35f8592b-96cf-4a7a-8c7d-1dbf1aa650dd",
-          "type": "monitor",
-          "status": "active"
+          "name": "ELI Heartbeat v2.1",
+          "schedule": "0 * * * * (hourly)",
+          "function": "System monitoring + intelligence briefing"
+        },
+        {
+          "name": "Otto Command Dispatcher",
+          "schedule": "*/15 * * * * (every 15 min)",
+          "function": "Reads inbox commands, dispatches to tools, writes results to outbox"
         },
         {
           "name": "Hedra Character Video Generator",
-          "id": "1f47ff73-6bc0-4184-8b53-72fe2bdec338",
-          "type": "content_creation",
-          "status": "active"
+          "schedule": "on-demand",
+          "function": "Character video generation via Hedra API"
         }
       ]
     },
-    "local_systems": {
-      "openclaw": {
-        "status": "active",
-        "workspace": "local",
-        "git_remote": "pending_setup"
-      },
-      "antigravity": {
-        "status": "active",
-        "type": "orchestration_agent"
-      }
+    "eliclaw": {
+      "platform": "OpenClaw/Telegram",
+      "bot": "@BrziAiBot",
+      "capabilities": [
+        "telegram_command_handler",
+        "cron_scheduler",
+        "skill_executor"
+      ],
+      "integration": "Writes commands to otto_bridge/inbox/, reads results from otto_bridge/outbox/"
     },
-    "cloud_services": {
-      "github": { "repo": "arnes91/The-Sovereign-Architect", "status": "connected" },
-      "gmail": { "status": "connected", "scope": "readonly" },
-      "supabase": { "status": "connected", "features": ["storage", "vectors", "auth"] },
-      "firebase": { "status": "connected", "features": ["auth"] },
-      "hedra": { "status": "connected", "credits": 1600, "model": "Character-3" },
-      "hume_ai": { "status": "planned", "needs": "backend_proxy" },
-      "distrokid": { "status": "working", "pipeline": "gemini_3.1_pro" },
-      "gemini": { "status": "connected", "models": ["1.5-pro", "2.0-flash", "3.1-pro"] }
+    "antigravity": {
+      "platform": "Gemini/Local",
+      "capabilities": [
+        "code_analysis",
+        "project_status_audit",
+        "file_management"
+      ],
+      "integration": "Reads/writes otto_bridge/ for status awareness and task coordination"
     }
   },
-  "sync_protocol": {
-    "inbox": "otto_bridge/inbox/ — Commands from AutoGPT to local agents",
-    "outbox": "otto_bridge/outbox/ — Reports from local agents to AutoGPT",
-    "heartbeat": "otto_bridge/heartbeat.json — Updated by ELI Heartbeat agent",
-    "context": "otto_bridge/context/ — Shared knowledge and agent registry"
+  "telegram": {
+    "bot": "@BrziAiBot",
+    "group": "BRZI_STUDIO_HUB",
+    "chat_id": -1003792999796,
+    "topics": {
+      "00_SYSTEM": { "thread_id": 19 },
+      "01_TSA_DEV": { "thread_id": 20 },
+      "02_BRZI_ARZI": { "thread_id": 22 },
+      "03_GENERAL": { "thread_id": 1 }
+    }
   }
 }
