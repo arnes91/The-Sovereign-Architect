@@ -10,22 +10,22 @@
   "alerts": [
     {
       "level": "critical",
-      "message": "The-Sovereign-Architect DEAD — 1h25m offline with 4 consecutive Vercel failures",
+      "message": "THE-SOVEREIGN-ARCHITECT IS FLATLINED — 1h25m offline with 4 consecutive Vercel deployment failures",
       "timestamp": "2026-03-21T00:05:26Z"
     },
     {
       "level": "critical",
-      "message": "Hedra API key COMPROMISED — 3 days exposed, video pipeline down",
+      "message": "Hedra API key compromised for 3 days, video pipeline completely torched",
       "timestamp": "2026-03-21T00:05:26Z"
     },
     {
       "level": "critical",
-      "message": "ZERO revenue streams active — complete production flatline",
+      "message": "Complete production shutdown across both Brzi branches — no content generation, no revenue flow, no audience engagement",
       "timestamp": "2026-03-21T00:05:26Z"
     }
   ],
   "metrics": {
-    "total_runs": 8
+    "total_runs": 9
   }
 }
 ```
