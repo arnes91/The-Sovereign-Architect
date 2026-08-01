@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { StorageService } from '../../services/storageService';
 import { safeApiCall } from '../../services/geminiService';
+import { getAccessToken, googleSignIn } from '../../services/workspaceService';
 import { Copy, Download, Video, Image as ImageIcon, CheckCircle2, Loader2, Sparkles, Youtube } from 'lucide-react';
 
 interface YouTubeMetadata {
@@ -180,37 +181,23 @@ const YouTubePipeline: React.FC = () => {
         
         try {
             // Check if user is authenticated with Google
-            // @ts-ignore
-            if (window.aistudio && !await window.aistudio.hasSelectedApiKey()) {
-                alert("Please authenticate with Google first.");
-                return;
+            let accessToken = await getAccessToken();
+            if (!accessToken) {
+                const signInResult = await googleSignIn();
+                if (signInResult) {
+                    accessToken = signInResult.accessToken;
+                } else {
+                    alert("Please authenticate with Google first.");
+                    return;
+                }
             }
 
             setStatus('ANALYZING'); // Reusing status for loading state
             
             addLog("Initiating YouTube Upload Protocol...");
             
-            // In a real environment, we would get the OAuth token here.
-            // For this AI Studio environment, we simulate the token retrieval
-            // but provide the actual fetch structure for when it's deployed.
-            const accessToken = "SIMULATED_OAUTH_TOKEN"; 
-            
-            if (accessToken === "SIMULATED_OAUTH_TOKEN") {
-                addLog("Authenticating with YouTube Data API v3...");
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                addLog("Uploading Media File...");
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                addLog("Setting Metadata (Title, Description, Tags)...");
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                addLog("Uploading Custom Thumbnail...");
-                await new Promise(resolve => setTimeout(resolve, 1500));
-                
-                alert("Video successfully uploaded to YouTube! (Simulated due to missing OAuth token in this environment)");
-                setStatus('DONE');
-                return;
-            }
-
             // ACTUAL API UPLOAD LOGIC (Ready for production with real token)
+            addLog("Authenticating with YouTube Data API v3...");
             const formData = new FormData();
             formData.append('snippet', new Blob([JSON.stringify({
                 snippet: { 
@@ -232,11 +219,46 @@ const YouTubePipeline: React.FC = () => {
             });
             
             if (!response.ok) {
-                throw new Error(`YouTube API Error: ${response.statusText}`);
+                const errText = await response.text();
+                throw new Error(`YouTube API Error: ${response.statusText} - ${errText}`);
             }
             
             const data = await response.json();
             addLog(`Upload successful! Video ID: ${data.id}`);
+            
+            if (metadata.thumbnailUrl) {
+                addLog("Uploading custom thumbnail...");
+                try {
+                    const base64Parts = metadata.thumbnailUrl.split(';base64,');
+                    const raw = window.atob(base64Parts[1]);
+                    const rawLength = raw.length;
+                    const uInt8Array = new Uint8Array(rawLength);
+                    for (let i = 0; i < rawLength; ++i) {
+                        uInt8Array[i] = raw.charCodeAt(i);
+                    }
+                    const thumbBlob = new Blob([uInt8Array], { type: 'image/jpeg' });
+                    
+                    const thumbResponse = await fetch(`https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=${data.id}`, {
+                        method: 'POST',
+                        headers: { 
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Content-Type': 'image/jpeg'
+                        },
+                        body: thumbBlob
+                    });
+                    
+                    if (!thumbResponse.ok) {
+                        const errText = await thumbResponse.text();
+                        console.warn(`Thumbnail upload failed: ${thumbResponse.statusText} - ${errText}`);
+                        addLog("Warning: Custom thumbnail upload failed. Using auto-generated thumbnail.");
+                    } else {
+                        addLog("Custom thumbnail uploaded successfully!");
+                    }
+                } catch (thumbErr) {
+                    console.error("Thumbnail Upload Error:", thumbErr);
+                    addLog("Warning: Could not upload thumbnail.");
+                }
+            }
             
             alert("Video successfully uploaded to YouTube!");
             setStatus('DONE');

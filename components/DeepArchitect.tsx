@@ -27,13 +27,14 @@ const DeepArchitect: React.FC<DeepArchitectProps> = ({ demoTrigger }) => {
 
   // --- DEMO MODE EFFECT ---
   useEffect(() => {
+      let typeInterval: NodeJS.Timeout;
       if (demoTrigger === 'SIMULATE_CHAT' && !isStreaming) {
           const demoPrompt = "Analyze the current viral potential of AI wrapper apps in the Balkan market.";
           let charIndex = 0;
           
           setMessages([]); // Clear previous
           
-          const typeInterval = setInterval(() => {
+          typeInterval = setInterval(() => {
               if (charIndex < demoPrompt.length) {
                   setInput(prev => prev + demoPrompt.charAt(charIndex));
                   charIndex++;
@@ -45,9 +46,10 @@ const DeepArchitect: React.FC<DeepArchitectProps> = ({ demoTrigger }) => {
                   }, 500);
               }
           }, 30); // Typing speed
-          
-          return () => clearInterval(typeInterval);
       }
+      return () => {
+          if (typeInterval) clearInterval(typeInterval);
+      };
   }, [demoTrigger]);
 
   useEffect(() => {

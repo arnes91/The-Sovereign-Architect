@@ -57,11 +57,12 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
 
   // --- DEMO TRIGGER ---
   useEffect(() => {
+      let typeInt: NodeJS.Timeout;
       if (demoTrigger === 'SIMULATE_COMPANION' && !isStreaming) {
           const demoMsg = "Identify top 3 tasks to improve my Spotify algorithm reach today.";
           let i = 0;
           setInput("");
-          const typeInt = setInterval(() => {
+          typeInt = setInterval(() => {
               setInput(prev => prev + demoMsg.charAt(i));
               i++;
               if (i >= demoMsg.length) {
@@ -70,6 +71,9 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
               }
           }, 30);
       }
+      return () => {
+          if (typeInt) clearInterval(typeInt);
+      };
   }, [demoTrigger]);
 
   const clearHistory = async () => {

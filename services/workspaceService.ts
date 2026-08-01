@@ -18,6 +18,7 @@ provider.addScope('https://www.googleapis.com/auth/presentations');
 provider.addScope('https://www.googleapis.com/auth/tasks');
 provider.addScope('https://www.googleapis.com/auth/chat.messages');
 provider.addScope('https://www.googleapis.com/auth/chat.spaces');
+provider.addScope('https://www.googleapis.com/auth/youtube.upload');
 
 let isSigningIn = false;
 let cachedAccessToken: string | null = null;
@@ -118,6 +119,42 @@ const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
 };
 
 export const WorkspaceService = {
+  // Drive (Backup/Restore)
+  backupToDrive: async (fileName: string, data: any) => {
+    LoggerService.logWorkspace(`Backing up data to Google Drive as ${fileName}...`);
+    const token = await getAccessToken();
+    if (!token) throw new Error("Not authenticated");
+
+    const metadata = {
+        name: fileName,
+        mimeType: 'application/json'
+    };
+    
+    const fileContent = JSON.stringify(data, null, 2);
+    const file = new Blob([fileContent], { type: 'application/json' });
+    
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    form.append('file', file);
+    
+    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${token}`
+        },
+        body: form
+    });
+    
+    if (!res.ok) throw new Error("Backup failed");
+    return res.json();
+  },
+
+  downloadFileFromDrive: async (fileId: string) => {
+      LoggerService.logWorkspace(`Downloading backup file ${fileId} from Drive...`);
+      const res = await fetchWithAuth(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+      return res; // Note: return the raw JSON object since fetchWithAuth calls res.json()
+  },
+  
   // Calendar
   getUpcomingEvents: async () => {
     const timeMin = new Date().toISOString();

@@ -5,6 +5,7 @@ import { getAI } from '../services/geminiService';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { WorkspaceService, initAuth, getAccessToken, googleSignIn } from '../services/workspaceService';
+import { StorageService } from '../services/storageService';
 import { LoggerService, LogEntry } from '../services/loggerService';
 
 interface DashboardProps {
@@ -50,6 +51,33 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     } catch (e) {
       console.error("Workspace Auth Failed", e);
     }
+  };
+
+  const handleBackup = async () => {
+      try {
+          const data = await StorageService.exportAllLocalData();
+          const fileName = `Brzi_Architect_Backup_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+          await WorkspaceService.backupToDrive(fileName, data);
+          alert("Backup successfully saved to Google Drive!");
+      } catch (e) {
+          console.error("Backup failed", e);
+          alert("Backup failed. Check console for details.");
+      }
+  };
+
+  const handleRestore = async () => {
+      const fileId = prompt("Enter the Google Drive File ID of the backup JSON file:");
+      if (!fileId) return;
+      try {
+          const res = await WorkspaceService.downloadFileFromDrive(fileId);
+          const data = await res; // The res is already parsed JSON from fetchWithAuth
+          await StorageService.importAllLocalData(data);
+          alert("Restore successful! Reloading system...");
+          window.location.reload();
+      } catch (e) {
+          console.error("Restore failed", e);
+          alert("Restore failed. Check console for details.");
+      }
   };
 
   const loadWorkspaceData = async () => {
@@ -99,6 +127,22 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                            >
                               CONNECT WORKSPACE
                            </button>
+                        )}
+                        {workspaceAuth && (
+                           <>
+                             <button 
+                                onClick={handleBackup}
+                                className="px-4 py-2 border border-cyber-green/50 text-cyber-green font-mono text-xs hover:bg-cyber-green hover:text-black transition-colors uppercase tracking-widest rounded"
+                             >
+                                BACKUP TO DRIVE
+                             </button>
+                             <button 
+                                onClick={handleRestore}
+                                className="px-4 py-2 border border-yellow-500/50 text-yellow-500 font-mono text-xs hover:bg-yellow-500 hover:text-black transition-colors uppercase tracking-widest rounded"
+                             >
+                                RESTORE FROM DRIVE
+                             </button>
+                           </>
                         )}
                         <button 
                             onClick={handleDisconnect}

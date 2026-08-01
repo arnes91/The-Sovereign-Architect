@@ -7,7 +7,7 @@ import { KnowledgeItem, DBZScanResult, GeneratedImage, AnalyticsReport } from ".
 import { auth, db, isFirebaseConfigured } from "../firebase";
 import { collection, doc, setDoc, getDocs, deleteDoc, query, where, orderBy, limit, getDoc, updateDoc } from 'firebase/firestore';
 import { generateEmbedding } from "./geminiService";
-import { get, set, del } from 'idb-keyval';
+import { get, set, del, entries } from 'idb-keyval';
 
 const KEYS = {
     KNOWLEDGE_BASE: 'brzi_knowledge_base',
@@ -61,6 +61,35 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number = 3000): Pr
 };
 
 export const StorageService = {
+    // --- Backup/Restore ---
+    exportAllLocalData: async () => {
+        try {
+            const allEntries = await entries();
+            const data: Record<string, any> = {};
+            for (const [key, value] of allEntries) {
+                if (typeof key === 'string' && key.startsWith('brzi_')) {
+                    data[key] = value;
+                }
+            }
+            return data;
+        } catch (e) {
+            console.error("Failed to export local data:", e);
+            throw e;
+        }
+    },
+
+    importAllLocalData: async (data: Record<string, any>) => {
+        try {
+            for (const [key, value] of Object.entries(data)) {
+                if (typeof key === 'string' && key.startsWith('brzi_')) {
+                    await set(key, value);
+                }
+            }
+        } catch (e) {
+            console.error("Failed to import local data:", e);
+            throw e;
+        }
+    },
     // --- Otto Copilot Config ---
     saveOttoConfig: async (config: any) => {
         const owner_id = getOwnerId();

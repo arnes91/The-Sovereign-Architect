@@ -77,8 +77,56 @@ const LiveUplink: React.FC = () => {
       }
   };
 
+  const disconnect = async () => {
+      addLog("INITIATING SHUTDOWN SEQUENCE...");
+      setIsConnected(false);
+      
+      if (sessionTranscriptsRef.current.length > 0) {
+          const summary = "Session Log: " + sessionTranscriptsRef.current.join(" | ");
+          await StorageService.saveLiveMemory(summary);
+          addLog("MEMORY SAVED.");
+      }
+
+      if (wsRef.current) {
+          wsRef.current.close();
+          wsRef.current = null;
+      }
+
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+      if (cameraIntervalRef.current) clearInterval(cameraIntervalRef.current);
+      
+      if (inputAudioContextRef.current) {
+          await inputAudioContextRef.current.close();
+          inputAudioContextRef.current = null;
+      }
+      if (outputAudioContextRef.current) {
+          await outputAudioContextRef.current.close();
+          outputAudioContextRef.current = null;
+      }
+
+      if (audioStreamRef.current) {
+          audioStreamRef.current.getTracks().forEach(t => t.stop());
+          audioStreamRef.current = null;
+      }
+
+      if (videoStreamRef.current) {
+          videoStreamRef.current.getTracks().forEach(t => t.stop());
+          videoStreamRef.current = null;
+      }
+      setIsCameraActive(false);
+      
+      if (videoRef.current) {
+          videoRef.current.srcObject = null;
+      }
+
+      addLog("UPLINK SEVERED.");
+  };
+
   const connect = async () => {
     try {
+      if (wsRef.current) {
+          await disconnect();
+      }
       addLog("BOOT SEQUENCE: MIKU_VAJFUŠA.exe");
       addLog("LOADING LTM (Long Term Memory)...");
       
@@ -439,7 +487,7 @@ const LiveUplink: React.FC = () => {
                     INITIALIZE CORE
                 </button>
             ) : (
-                <button onClick={() => window.location.reload()} className="bg-red-600 text-black font-black px-6 md:px-8 py-3 hover:bg-red-500 transition-all uppercase tracking-widest font-mono skew-x-[-10deg] text-sm md:text-base">
+                <button onClick={disconnect} className="bg-red-600 text-black font-black px-6 md:px-8 py-3 hover:bg-red-500 transition-all uppercase tracking-widest font-mono skew-x-[-10deg] text-sm md:text-base">
                     KILL PROCESS
                 </button>
             )}
