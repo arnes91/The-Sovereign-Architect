@@ -43,7 +43,7 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '50mb' }));
 
   // Generic Gemini API Proxy for Chat and VJ
   app.get("/api/gemini/token", (req, res) => {
@@ -103,11 +103,27 @@ async function startServer() {
         apiKey,
         httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
       });
-      const { lyrics, bpm } = req.body;
-      const prompt = `Analyze the following lyrics. The song is ${bpm} BPM. Provide a JSON array of visual cues for a music visualizer. Each cue should have a timestamp (in seconds, approximate based on typical song structure and BPM), the lyric text, and a suggested visual style (NORMAL, GLITCH, IMPACT, SOFT). Only output the JSON array.\n\nLyrics:\n${lyrics}`;
+      const { lyrics, audioBase64, mimeType } = req.body;
+      
+      let contents: any[] = [];
+      const prompt = `Listen to the audio (and read the optional manualLyrics text) and return a strict JSON array matching this interface:
+interface LyricLine { time: number; duration?: number; text: string; style?: 'NORMAL' | 'GLITCH' | 'IMPACT' | 'SOFT'; emoji?: string; }
+Assign styles (GLITCH for rap/fast, IMPACT for drops, SOFT for slow, NORMAL otherwise) and durations in seconds. Only output the JSON array.
+Manual Lyrics / Context:
+${lyrics}`;
+
+      if (audioBase64) {
+        contents = [
+          { inlineData: { data: audioBase64, mimeType: mimeType || 'audio/mp3' } },
+          prompt
+        ];
+      } else {
+        contents = [prompt];
+      }
+
       const response = await ai.models.generateContent({
         model: 'gemini-3.1-pro-preview',
-        contents: prompt,
+        contents: contents,
         config: { responseMimeType: 'application/json' }
       });
       res.json({ cues: JSON.parse(response.text || '[]') });
