@@ -7,7 +7,7 @@
 import { DBZStats } from "../types";
 import { PERSONALITIES } from "../config/personalities";
 
-const HUME_API_KEY = import.meta.env.VITE_HUME_API_KEY;
+const HUME_API_KEY = (import.meta as any).env.VITE_HUME_API_KEY;
 
 export const HumeService = {
     

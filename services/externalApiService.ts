@@ -3,10 +3,10 @@
  * Handles connections to YouTube and Spotify for Brzi Ecosystem data.
  */
 
-const YOUTUBE_API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
-const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
-const SPOTIFY_CLIENT_SECRET = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET;
-const SPOTIFY_ARTIST_ID = import.meta.env.VITE_SPOTIFY_ARTIST_ID;
+const YOUTUBE_API_KEY = (import.meta as any).env.VITE_YOUTUBE_API_KEY;
+const SPOTIFY_CLIENT_ID = (import.meta as any).env.VITE_SPOTIFY_CLIENT_ID;
+const SPOTIFY_CLIENT_SECRET = (import.meta as any).env.VITE_SPOTIFY_CLIENT_SECRET;
+const SPOTIFY_ARTIST_ID = (import.meta as any).env.VITE_SPOTIFY_ARTIST_ID;
 
 const YOUTUBE_CHANNELS = {
     BRZI_ARZI: '@brziarzi',

@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { streamStrategyChat } from '../services/geminiService';
 import { GroundingMetadata } from '../types';
 import ReactMarkdown from 'react-markdown';
+import { LoggerService } from '../services/loggerService';
 
 interface DeepArchitectProps {
     demoTrigger?: string; // New prop for demo mode
@@ -20,7 +21,9 @@ const DeepArchitect: React.FC<DeepArchitectProps> = ({ demoTrigger }) => {
   const recognitionRef = useRef<any>(null);
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  useEffect(scrollToBottom, [messages]);
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   // --- DEMO MODE EFFECT ---
   useEffect(() => {
@@ -122,6 +125,7 @@ const DeepArchitect: React.FC<DeepArchitectProps> = ({ demoTrigger }) => {
         let fullResponse = '';
         let groundingData: GroundingMetadata | null = null;
         
+        LoggerService.logAgent(`Strategic query initiated. Mode: ${mode}`, { prompt: userMsg.content });
         setMessages(prev => [...prev, { role: 'model', content: '', type: 'model', isThinking: mode === 'THINKING' }]);
 
         const stream = streamStrategyChat(apiHistory, userMsg.content, mode);
@@ -143,15 +147,19 @@ const DeepArchitect: React.FC<DeepArchitectProps> = ({ demoTrigger }) => {
         }
         
         if (groundingData) {
+            LoggerService.logAgent(`Strategic response completed with grounding sources.`, { sourcesCount: groundingData.groundingChunks?.length });
             setMessages(prev => {
                 const newArr = [...prev];
                 const last = newArr[newArr.length - 1];
                 last.groundingMetadata = groundingData;
                 return newArr;
             });
+        } else {
+            LoggerService.logAgent(`Strategic response completed.`);
         }
 
-    } catch (e) {
+    } catch (e: any) {
+        LoggerService.logError(`Deep Architect process error: ${e.message || e}`, { error: e });
         console.error(e);
         setMessages(prev => [...prev, { role: 'model', content: "Error: Neural Link Severed.", type: 'error' }]);
     } finally {
@@ -193,10 +201,10 @@ const DeepArchitect: React.FC<DeepArchitectProps> = ({ demoTrigger }) => {
                     : 'bg-black/40 text-zinc-300 border border-zinc-900'
                 }`}>
                     <div className="prose prose-invert prose-sm max-w-none font-sans">
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                        <ReactMarkdown>{msg.content || ''}</ReactMarkdown>
                     </div>
                     
-                    {msg.groundingMetadata && msg.groundingMetadata.groundingChunks?.length > 0 && (
+                    {!!(msg.groundingMetadata && msg.groundingMetadata.groundingChunks && msg.groundingMetadata.groundingChunks.length > 0) && (
                         <div className="mt-4 pt-4 border-t border-zinc-800">
                             <p className="text-xs font-mono text-cyber-green mb-2">SOURCES DETECTED:</p>
                             <div className="flex flex-wrap gap-2">

@@ -118,7 +118,7 @@ export const VideoGenerator: React.FC = () => {
                 >
                     {loading ? (
                         <>
-                            <LoadingSpinner size="sm" />
+                            <LoadingSpinner />
                             <span>Generating (Takes a few mins)...</span>
                         </>
                     ) : (
@@ -140,7 +140,7 @@ export const VideoGenerator: React.FC = () => {
             <div className="lg:col-span-2 bg-black rounded-xl border border-zinc-800 flex items-center justify-center overflow-hidden relative min-h-[400px]">
                 {loading ? (
                     <div className="flex flex-col items-center space-y-4 text-zinc-500">
-                        <LoadingSpinner size="lg" />
+                        <LoadingSpinner />
                         <p className="font-mono text-sm">Veo is rendering your video...</p>
                         <p className="text-xs max-w-xs text-center">This process can take a few minutes depending on server load.</p>
                     </div>

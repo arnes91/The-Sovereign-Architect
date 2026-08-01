@@ -8,7 +8,7 @@ export const generateHedraCharacterVideo = async (
     aspectRatio: '16:9' | '1:1' | '9:16' = '1:1'
 ) => {
     return safeApiCall(async () => {
-        const apiKey = import.meta.env.VITE_HEDRA_API_KEY;
+        const apiKey = (import.meta as any).env.VITE_HEDRA_API_KEY;
         if (!apiKey) throw new Error("VITE_HEDRA_API_KEY is missing.");
 
         // 1. Initiate Generation

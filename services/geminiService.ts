@@ -4,7 +4,18 @@ import { PERSONALITIES } from '../config/personalities';
 import { PROMPT_TEMPLATES } from '../config/promptTemplates';
 import { HumeService } from './humeService';
 
-export const getAI = () => new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+export const getAI = () => {
+    let key = '';
+    if (typeof window !== 'undefined') {
+        key = (window as any)._geminiToken || (import.meta as any).env.VITE_GEMINI_API_KEY || '';
+    } else {
+        key = process.env.GEMINI_API_KEY || process.env.API_KEY || '';
+    }
+    return new GoogleGenAI({ 
+        apiKey: key,
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+    });
+};
 
 const getPaidAI = async () => {
     // @ts-ignore
@@ -12,7 +23,10 @@ const getPaidAI = async () => {
         // @ts-ignore
         await window.aistudio.openSelectKey();
     }
-    return new GoogleGenAI({ apiKey: process.env.API_KEY });
+    return new GoogleGenAI({ 
+        apiKey: process.env.API_KEY,
+        httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+    });
 };
 
 // --- Helpers ---
@@ -249,12 +263,14 @@ export const editImage = async (base64Image: string, mimeType: string, prompt: s
 
 export const generateEmbedding = async (text: string) => {
     return safeApiCall(async () => {
-        const ai = getAI();
-        const response = await ai.models.embedContent({
-            model: 'gemini-embedding-2-preview',
-            contents: [text],
+        const res = await fetch('/api/gemini/embed', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text })
         });
-        return response.embeddings?.[0]?.values || [];
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        return data.embedding || [];
     });
 };
 
@@ -277,6 +293,7 @@ export const analyzeDataFile = async (content: string, fileName: string) => {
                 --- DATA END ---
             `,
             config: {
+                // @ts-ignore
                 thinkingConfig: { thinkingLevel: 1 } // ThinkingLevel.HIGH
             }
         });
@@ -345,6 +362,7 @@ export const complexAnalysis = async (prompt: string, media: { data: string, mim
                 ]
             },
             config: {
+                // @ts-ignore
                 thinkingConfig: { thinkingLevel: 1 } // ThinkingLevel.HIGH
             }
         });
@@ -409,30 +427,32 @@ export const streamStrategyChat = async function* (history: any[], newMessage: s
 
 export const synthesizeKnowledgeBase = async (rawDataDump: string) => {
     return safeApiCall(async () => {
-        const ai = getAI();
         const prompt = PROMPT_TEMPLATES.KNOWLEDGE_SYNTHESIS;
-        
-        // Truncate to avoid context window explosion, though Pro has 2M context.
-        // Let's be safe with 100k chars for now.
         const safeData = rawDataDump.substring(0, 100000);
+        
+        const contents = `
+            ${prompt}
+            
+            --- RAW DATA DUMP START ---
+            ${safeData}
+            --- RAW DATA DUMP END ---
+        `;
 
-        const response = await ai.models.generateContent({
-            model: 'gemini-3.1-pro-preview',
-            contents: `
-                ${prompt}
-                
-                --- RAW DATA DUMP START ---
-                ${safeData}
-                --- RAW DATA DUMP END ---
-            `,
-            config: {
-                responseMimeType: "application/json",
-                thinkingConfig: { thinkingLevel: 1 } // ThinkingLevel.HIGH
-            }
+        const res = await fetch('/api/gemini/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'gemini-3.1-pro-preview',
+                contents,
+                responseMimeType: "application/json"
+            })
         });
 
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
         try {
-            return JSON.parse(response.text || "[]");
+            return JSON.parse(data.text || "[]");
         } catch (e) {
             console.error("Failed to parse synthesized knowledge JSON", e);
             return [];

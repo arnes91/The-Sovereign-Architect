@@ -144,7 +144,7 @@ const YouTubePipeline: React.FC = () => {
             // Step 3: Save to Knowledge Base
             await StorageService.saveKnowledgeItem({
                 id: Date.now().toString(),
-                type: 'STRATEGY',
+                type: 'CONTEXTUAL',
                 title: `YouTube Release: ${newMetadata.optimizedTitle}`,
                 content: `YouTube Release Package Generated:\n\nTitle: ${newMetadata.optimizedTitle}\n\nTags: ${newMetadata.tags}\n\nDescription:\n${newMetadata.description}\n\nThumbnail Prompt:\n${newMetadata.thumbnailPrompt}`,
                 tags: ['youtube', 'release', 'video'],

@@ -4,7 +4,7 @@ const GENKIT_API_URL = 'https://genkit.googleapis.com/v1'; // Placeholder URL, a
 
 export const callGenKitModel = async (prompt: string, modelName: string = 'gemini-1.5-pro') => {
     return safeApiCall(async () => {
-        const apiKey = import.meta.env.VITE_GENKIT_API_KEY;
+        const apiKey = (import.meta as any).env.VITE_GENKIT_API_KEY;
         if (!apiKey) throw new Error("VITE_GENKIT_API_KEY is missing.");
 
         // Example implementation, adjust based on actual GenKit API structure

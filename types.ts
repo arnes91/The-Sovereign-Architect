@@ -14,7 +14,8 @@ export enum View {
   UPLOAD_DECK = 'UPLOAD_DECK',
   YOUTUBE_PIPELINE = 'YOUTUBE_PIPELINE',
   ADINS_PLAYGROUND = 'ADINS_PLAYGROUND',
-  SHOWCASE_MODE = 'SHOWCASE_MODE'
+  SHOWCASE_MODE = 'SHOWCASE_MODE',
+  MANAGED_AGENTS_LAB = 'MANAGED_AGENTS_LAB'
 }
 
 export interface ChatMessage {
@@ -104,9 +105,10 @@ export interface GeneratedImage {
 
 export interface KnowledgeItem {
   id: string;
-  type: 'PROMPT' | 'NOTE' | 'STRATEGY' | 'SCAN';
+  type: 'UNIVERSAL' | 'CONTEXTUAL';
   title: string;
   content: string;
+  embedding?: number[];
   tags: string[];
   createdAt: number;
 }

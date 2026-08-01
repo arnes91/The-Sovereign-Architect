@@ -33,7 +33,9 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  useEffect(scrollToBottom, [messages, isStreaming]);
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, isStreaming]);
 
   // LOAD MEMORY ON MOUNT
   useEffect(() => {

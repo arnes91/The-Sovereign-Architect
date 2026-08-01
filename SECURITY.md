@@ -2,20 +2,15 @@
 
 ## Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
-
 | Version | Supported          |
 | ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+| v8.x    | :white_check_mark: |
+| v7.x    | :x:                |
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+Please report any security vulnerabilities by opening an issue or contacting the maintainer directly.
+Do not disclose vulnerabilities publicly until a patch has been released.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+## API Keys
+Never commit API keys (e.g., `GEMINI_API_KEY`, `VITE_HEDRA_API_KEY`) to version control. Always use `.env` files.

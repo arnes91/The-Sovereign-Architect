@@ -48,3 +48,18 @@ This allows us to tweak the "Soul" of the application without touching the "Body
 *   We use raw PCM decoding via `geminiService` helpers.
 *   **Goal:** Low-latency voice output for all modules.
 *   **Standard:** All audio is 24kHz (Gemini Default).
+
+## 5. Antigravity Analysis & Next.js Migration Path
+
+**Current State Assessment:**
+The application currently operates as a Client-Side Monolith (Vite + React). While this allowed for rapid prototyping of the WebGL Visualizer and Gemini Live WebRTC connections, it presents critical security and persistence flaws:
+1.  **API Key Exposure:** `GEMINI_API_KEY` and other sensitive tokens are currently bundled into the client.
+2.  **Ephemeral State:** `StorageService` relies on `localStorage` and `IndexedDB`.
+3.  **Agent Limitations:** The `OttoBridge` cannot execute background tasks if the browser tab is closed.
+
+**The Next.js Solution:**
+To achieve true "Sovereign" status, the architecture must evolve:
+*   **App Router:** Migrate to Next.js `app/` directory.
+*   **Server Actions & API Routes:** Move all `geminiService` calls to the server (`/api/gemini/...`).
+*   **Secure WebSockets:** Proxy the Gemini Live WebRTC connection through a secure backend route or manage tokens securely.
+*   **Background Execution:** Utilize Vercel Cron or custom Node.js background workers for the Otto Copilot agents.

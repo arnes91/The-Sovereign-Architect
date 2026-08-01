@@ -1,25 +1,12 @@
-# .github/labeler.yml
-
+# Add 'frontend' label to any change within the 'components' or 'src' directory
 frontend:
-  - 'src/**/*'
-  - 'public/**/*'
-  - '*.tsx'
-  - '*.ts'
-  - '*.css'
-  - '*.html'
+  - components/**/*
+  - src/**/*
 
-backend-logic:
-  - 'services/**/*'
-  - 'api/**/*'
+# Add 'backend' label to any change within the 'services' directory
+backend:
+  - services/**/*
 
-infrastructure:
-  - '.github/**/*'
-  - 'package.json'
-  - 'package-lock.json'
-  - 'vite.config.ts'
-  - 'tsconfig.json'
-  - '.gitignore'
-
+# Add 'documentation' label to any change to .md files
 documentation:
-  - '*.md'
-  - 'docs/**/*'
+  - "**/*.md"

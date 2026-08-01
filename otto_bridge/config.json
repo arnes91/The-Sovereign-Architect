@@ -1,63 +1,13 @@
 {
-  "version": "1.2.0",
-  "protocol": "BRZI_SYNC_v1",
-  "updated": "2026-03-20T00:00:00Z",
-  "bridge": {
-    "name": "Otto Bridge",
-    "description": "Bidirectional sync layer between AutoGPT Platform (Otto) and local systems (EliClaw/Antigravity)",
-    "status": "ACTIVE",
-    "sync_interval_minutes": 15
+  "version": "1.0",
+  "endpoint": "https://api.agpt.co/v1/otto",
+  "syncIntervalMs": 30000,
+  "retryPolicy": {
+    "maxAttempts": 5,
+    "backoffMultiplier": 1.5
   },
-  "systems": {
-    "otto": {
-      "platform": "AutoGPT",
-      "agents": [
-        {
-          "name": "ELI Heartbeat v2.1",
-          "schedule": "0 * * * * (hourly)",
-          "function": "System monitoring + intelligence briefing"
-        },
-        {
-          "name": "Otto Command Dispatcher",
-          "schedule": "*/15 * * * * (every 15 min)",
-          "function": "Reads inbox commands, dispatches to tools, writes results to outbox"
-        },
-        {
-          "name": "Hedra Character Video Generator",
-          "schedule": "on-demand",
-          "function": "Character video generation via Hedra API"
-        }
-      ]
-    },
-    "eliclaw": {
-      "platform": "OpenClaw/Telegram",
-      "bot": "@BrziAiBot",
-      "capabilities": [
-        "telegram_command_handler",
-        "cron_scheduler",
-        "skill_executor"
-      ],
-      "integration": "Writes commands to otto_bridge/inbox/, reads results from otto_bridge/outbox/"
-    },
-    "antigravity": {
-      "platform": "Gemini/Local",
-      "capabilities": [
-        "code_analysis",
-        "project_status_audit",
-        "file_management"
-      ],
-      "integration": "Reads/writes otto_bridge/ for status awareness and task coordination"
-    }
-  },
-  "telegram": {
-    "bot": "@BrziAiBot",
-    "group": "BRZI_STUDIO_HUB",
-    "chat_id": -1003792999796,
-    "topics": {
-      "00_SYSTEM": { "thread_id": 19 },
-      "01_TSA_DEV": { "thread_id": 20 },
-      "02_BRZI_ARZI": { "thread_id": 22 },
-      "03_GENERAL": { "thread_id": 1 }
-    }
+  "features": {
+    "autoSync": true,
+    "backgroundExecution": true
   }
 }

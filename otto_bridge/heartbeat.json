@@ -1,36 +1,9 @@
-```json
 {
-  "last_heartbeat": "2026-03-21T11:00:00Z",
-  "status": "critical",
-  "last_actions": [
-    "RESURRECT TSA [CRITICAL NOW]: Debug Vercel environment variables, check build logs, restore basic functionality. Every minute = lost revenue.",
-    "SECURE HEDRA PIPELINE [CRITICAL TODAY]: Generate fresh API keys, update configurations, test video generation before weekend content push.",
-    "CAPITALIZE AI MUSIC WINDOW [URGENT 48H]: Produce \"Google Lyria 3 vs Ethics\" video using the ProducerAI acquisition angle. Position as industry analysis - high engagement potential."
-  ],
-  "alerts": [
-    {
-      "level": "critical",
-      "message": "REVENUE FLATLINE ACTIVE: TSA deployment failure cascade = 1h25m of zero income stream. Vercel deployment stuck in error loop.",
-      "timestamp": "2026-03-21T11:00:00Z"
-    },
-    {
-      "level": "critical",
-      "message": "CONTENT PRODUCTION DEAD: Hedra API compromised 72 hours = no video generation capability for both brands.",
-      "timestamp": "2026-03-21T11:00:00Z"
-    },
-    {
-      "level": "critical",
-      "message": "INFRASTRUCTURE TRIFECTA COLLAPSE: All three critical systems showing red simultaneously. This is not a drill.",
-      "timestamp": "2026-03-21T11:00:00Z"
-    },
-    {
-      "level": "critical",
-      "message": "Vercel Deployment Fail: Production environment crash confirmation.",
-      "timestamp": "2026-03-21T11:00:00Z"
-    }
-  ],
+  "timestamp": 1711019544000,
+  "status": "OK",
+  "activeConnections": 1,
   "metrics": {
-    "total_runs": 18
+    "cpuUsage": 12.5,
+    "memoryUsage": 256
   }
 }
-```

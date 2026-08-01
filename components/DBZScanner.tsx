@@ -27,6 +27,7 @@ const DBZScanner: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const radarCanvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
       if (viewState === 'HUD') startCamera();
@@ -44,6 +45,7 @@ const DBZScanner: React.FC = () => {
   const startCamera = async () => {
       try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+          streamRef.current = stream;
           if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (e) {
           console.error("Camera denied", e);
@@ -51,9 +53,12 @@ const DBZScanner: React.FC = () => {
   };
 
   const stopCamera = () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-          const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-          tracks.forEach(t => t.stop());
+      if (streamRef.current) {
+          streamRef.current.getTracks().forEach(t => t.stop());
+          streamRef.current = null;
+      }
+      if (videoRef.current) {
+          videoRef.current.srcObject = null;
       }
   };
 

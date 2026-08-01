@@ -156,7 +156,7 @@ const UploadDeck: React.FC = () => {
             // Step 4: Save to Knowledge Base
             await StorageService.saveKnowledgeItem({
                 id: Date.now().toString(),
-                type: 'STRATEGY',
+                type: 'CONTEXTUAL',
                 title: `Release: ${newMetadata.optimizedTitle}`,
                 content: `DistroKid Release Package Generated:\n\nTitle: ${newMetadata.optimizedTitle}\nPrimary Genre: ${newMetadata.primaryGenre}\nSecondary Genre: ${newMetadata.secondaryGenre}\nSubgenre: ${newMetadata.electronicSubgenre}\nLanguage: ${newMetadata.language}\n\nDescription:\n${newMetadata.description}\n\nCover Art Prompt:\n${newMetadata.coverImagePrompt}`,
                 tags: ['distrokid', 'release', newMetadata.primaryGenre.toLowerCase()],

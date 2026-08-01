@@ -1,5 +1,4 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { GoogleGenAI, LiveServerMessage, Modality } from '@google/genai';
 import { arrayBufferToBase64, decodePCM } from '../services/geminiService';
 import { StorageService } from '../services/storageService';
 import { PROMPT_TEMPLATES } from '../config/promptTemplates';
@@ -19,14 +18,16 @@ const LiveUplink: React.FC = () => {
   const [systemPrompt, setSystemPrompt] = useState(PROMPT_TEMPLATES.LIVE_UPLINK_MIKU);
   const [savedMemory, setSavedMemory] = useState('');
   
-  // Audio Context Refs
+  // Audio/Socket Refs
   const inputAudioContextRef = useRef<AudioContext | null>(null);
   const outputAudioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const nextStartTimeRef = useRef<number>(0);
-  const sessionPromiseRef = useRef<Promise<any> | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const rafIdRef = useRef<number | null>(null);
   const cameraIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const audioStreamRef = useRef<MediaStream | null>(null);
+  const videoStreamRef = useRef<MediaStream | null>(null);
 
   // Session Memory
   const sessionTranscriptsRef = useRef<string[]>([]);
@@ -47,10 +48,24 @@ const LiveUplink: React.FC = () => {
           });
       }
 
+      if (wsRef.current) {
+          wsRef.current.close();
+          wsRef.current = null;
+      }
+
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
       if (cameraIntervalRef.current) clearInterval(cameraIntervalRef.current);
       if (inputAudioContextRef.current) inputAudioContextRef.current.close();
       if (outputAudioContextRef.current) outputAudioContextRef.current.close();
+
+      if (audioStreamRef.current) {
+          audioStreamRef.current.getTracks().forEach(t => t.stop());
+          audioStreamRef.current = null;
+      }
+      if (videoStreamRef.current) {
+          videoStreamRef.current.getTracks().forEach(t => t.stop());
+          videoStreamRef.current = null;
+      }
     };
   }, []);
 
@@ -68,11 +83,6 @@ const LiveUplink: React.FC = () => {
       addLog("LOADING LTM (Long Term Memory)...");
       
       const previousContext = await StorageService.getLiveMemory();
-      const memoryInjection = previousContext 
-        ? `\n\n[SYSTEM MEMORY DETECTED - DO NOT IGNORE]:\n${previousContext}\n\n[INSTRUCTION]: You MUST acknowledge previous interactions found in the memory above. If the user mentions something from before, recall it.` 
-        : "";
-
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
       inputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
@@ -81,12 +91,38 @@ const LiveUplink: React.FC = () => {
       analyserRef.current.fftSize = 256; 
       
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      
-      const config = {
-        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
-        callbacks: {
-          onopen: () => {
-            addLog("PROTOCOL ACTIVE.");
+      audioStreamRef.current = stream;
+
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${wsProtocol}//${window.location.host}`;
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      let pingInterval: any = null;
+
+      ws.onopen = () => {
+        addLog("UPLINK HANDSHAKE... SENDING PROTOCOLS");
+        ws.send(JSON.stringify({
+          type: 'setup',
+          voice: selectedVoice,
+          systemPrompt: systemPrompt,
+          memory: previousContext
+        }));
+
+        pingInterval = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'ping' }));
+          }
+        }, 5000);
+      };
+
+      ws.onmessage = async (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          
+          if (msg.type === 'status') {
+            addLog(msg.message);
+          } else if (msg.type === 'ready') {
             setIsConnected(true);
             
             if (!inputAudioContextRef.current) return;
@@ -94,22 +130,14 @@ const LiveUplink: React.FC = () => {
             const scriptProcessor = inputAudioContextRef.current.createScriptProcessor(4096, 1, 1);
             
             scriptProcessor.onaudioprocess = (e) => {
-              const inputData = e.inputBuffer.getChannelData(0);
-              const pcm16 = new Int16Array(inputData.length);
-              for (let i = 0; i < inputData.length; i++) {
-                pcm16[i] = inputData[i] * 32768;
-              }
-              const base64 = arrayBufferToBase64(pcm16.buffer);
-              
-              if (sessionPromiseRef.current) {
-                sessionPromiseRef.current.then(session => {
-                   session.sendRealtimeInput({ 
-                       media: { 
-                           mimeType: 'audio/pcm;rate=16000', 
-                           data: base64 
-                       } 
-                   });
-                });
+              if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                const inputData = e.inputBuffer.getChannelData(0);
+                const pcm16 = new Int16Array(inputData.length);
+                for (let i = 0; i < inputData.length; i++) {
+                  pcm16[i] = inputData[i] * 32768;
+                }
+                const base64 = arrayBufferToBase64(pcm16.buffer);
+                wsRef.current.send(JSON.stringify({ type: 'audio', data: base64 }));
               }
             };
             
@@ -117,56 +145,49 @@ const LiveUplink: React.FC = () => {
             scriptProcessor.connect(inputAudioContextRef.current.destination);
 
             startGlitchVisualizer();
-          },
-          onmessage: async (message: LiveServerMessage) => {
-             const base64Audio = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
-             if (base64Audio && outputAudioContextRef.current && analyserRef.current) {
-                 const ctx = outputAudioContextRef.current;
-                 const audioBuffer = decodePCM(base64Audio, ctx, 24000);
-                 const source = ctx.createBufferSource();
-                 source.buffer = audioBuffer;
-                 source.connect(analyserRef.current);
-                 analyserRef.current.connect(ctx.destination);
-                 const startTime = Math.max(nextStartTimeRef.current, ctx.currentTime);
-                 source.start(startTime);
-                 nextStartTimeRef.current = startTime + audioBuffer.duration;
-             }
-             
-             if (message.serverContent?.modelTurn?.parts?.[0]?.text) {
-                 const text = message.serverContent.modelTurn.parts[0].text;
-                 sessionTranscriptsRef.current.push(`AI: ${text}`);
-             }
-             
-             if (message.serverContent?.turnComplete) {
-                 const currentSessionLog = sessionTranscriptsRef.current.join(" | ");
-                 if (currentSessionLog.length > 0) {
-                    StorageService.saveLiveMemory(currentSessionLog);
-                    sessionTranscriptsRef.current = []; 
-                    addLog("Turn Complete. Memory Synced.");
-                 }
-             }
-          },
-          onclose: () => {
-            addLog("CONNECTION SEVERED.");
-            setIsConnected(false);
-            if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
-            if (cameraIntervalRef.current) clearInterval(cameraIntervalRef.current);
-          },
-          onerror: (e: any) => {
-            addLog(`CRITICAL ERROR: ${e.message || 'Unknown'}`);
+          } else if (msg.type === 'audio') {
+            if (outputAudioContextRef.current && analyserRef.current) {
+              const ctx = outputAudioContextRef.current;
+              const audioBuffer = decodePCM(msg.data, ctx, 24000);
+              const source = ctx.createBufferSource();
+              source.buffer = audioBuffer;
+              source.connect(analyserRef.current);
+              analyserRef.current.connect(ctx.destination);
+              const startTime = Math.max(nextStartTimeRef.current, ctx.currentTime);
+              source.start(startTime);
+              nextStartTimeRef.current = startTime + audioBuffer.duration;
+            }
+          } else if (msg.type === 'text') {
+            sessionTranscriptsRef.current.push(`AI: ${msg.text}`);
+          } else if (msg.type === 'turnComplete') {
+            const currentSessionLog = sessionTranscriptsRef.current.join(" | ");
+            if (currentSessionLog.length > 0) {
+              await StorageService.saveLiveMemory(currentSessionLog);
+              sessionTranscriptsRef.current = []; 
+              addLog("Turn Complete. Memory Synced.");
+            }
+          } else if (msg.type === 'error') {
+            addLog(`ERROR: ${msg.message}`);
           }
-        },
-        config: {
-            responseModalities: [Modality.AUDIO],
-            speechConfig: {
-                voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice as any } }
-            },
-            systemInstruction: systemPrompt + memoryInjection
+        } catch (err: any) {
+          console.error("Client message process error:", err);
         }
       };
 
-      // @ts-ignore
-      sessionPromiseRef.current = ai.live.connect(config);
+      ws.onclose = () => {
+        if (pingInterval) {
+          clearInterval(pingInterval);
+        }
+        addLog("CONNECTION SEVERED.");
+        setIsConnected(false);
+        if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
+        if (cameraIntervalRef.current) clearInterval(cameraIntervalRef.current);
+      };
+
+      ws.onerror = (e) => {
+        addLog("UPLINK OFFLINE. RETRYING...");
+        console.error("WS client error:", e);
+      };
 
     } catch (err: any) {
         addLog(`Init Failed: ${err.message}`);
@@ -221,7 +242,6 @@ const LiveUplink: React.FC = () => {
                 ctx.fillRect(0,0,width,height);
                 ctx.globalCompositeOperation = 'source-over';
             }
-            // Complex glitch: slice and shift
             if (Math.random() > 0.85) {
                 const sliceY = Math.random() * height;
                 const sliceH = Math.random() * 50;
@@ -271,45 +291,40 @@ const LiveUplink: React.FC = () => {
   const startCamera = async () => {
       try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          videoStreamRef.current = stream;
           if(videoRef.current) {
               videoRef.current.srcObject = stream;
               setIsCameraActive(true);
               
-              // Wait for video to be ready before starting capture loop
               videoRef.current.onloadedmetadata = () => {
                   videoRef.current?.play();
                   
                   const sendFrame = () => {
                       if(!canvasRef.current || !videoRef.current || !isConnected) return;
                       
-                      // Only send if video has valid dimensions
                       if (videoRef.current.videoWidth > 0 && videoRef.current.videoHeight > 0) {
                           const ctx = canvasRef.current.getContext('2d');
                           if(!ctx) return;
                           
-                          // Scale down for performance
                           canvasRef.current.width = videoRef.current.videoWidth / 4; 
                           canvasRef.current.height = videoRef.current.videoHeight / 4;
                           
                           ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
                           const base64 = canvasRef.current.toDataURL('image/jpeg', 0.5).split(',')[1];
                           
-                          if (sessionPromiseRef.current) {
-                              sessionPromiseRef.current.then(session => {
-                                  session.sendRealtimeInput({
-                                      media: { mimeType: 'image/jpeg', data: base64 }
-                                  });
-                              }).catch(err => console.error("Error sending frame:", err));
+                          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                              wsRef.current.send(JSON.stringify({
+                                  type: 'video',
+                                  data: base64
+                              }));
                           }
                       }
                       
-                      // Throttle frame sending to roughly 1fps to avoid overwhelming the connection
                       cameraIntervalRef.current = setTimeout(() => {
                           requestAnimationFrame(sendFrame);
                       }, 1000);
                   };
                   
-                  // Start the capture loop
                   requestAnimationFrame(sendFrame);
               };
           }

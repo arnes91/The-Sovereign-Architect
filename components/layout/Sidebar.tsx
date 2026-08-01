@@ -22,6 +22,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
     { id: View.YOUTUBE_PIPELINE, label: 'YOUTUBE PIPELINE', icon: 'M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z' },
     { id: View.DEEP_ARCHITECT, label: 'STRATEGY NODE', icon: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z' },
     { id: View.LIVE_UPLINK, label: 'LIVE UPLINK', icon: 'M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15.536a5 5 0 001.414 1.414m2.828-9.9a9 9 0 012.728 0M12 12a3 3 0 100-6 3 3 0 000 6z' },
+    { id: View.MANAGED_AGENTS_LAB, label: 'MANAGED AGENTS', icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
   ];
 
   const showInfo = (label: string) => {

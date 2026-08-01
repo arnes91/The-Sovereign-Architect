@@ -24,26 +24,21 @@ We are currently running a **Client-Side Monolith**. This is powerful for speed/
 | **DASHBOARD** | 🟢 **STABLE** | Central hub, navigation, strategic overview. | Static text. Needs dynamic feed from live metrics. |
 | **AI COMPANION** | 🟡 **PARTIAL** | Chat interface, Persona switching (Arzi, Tech). | **Memory Loss.** Refreshes kill context. No cross-device recall. |
 | **DBZ SCANNER** | 🟡 **BETA** | Face scan -> Power Level logic -> Persona Taunt. | **Basic Logic.** Power scaling is random math, not persistent user growth. |
-| **VISUALIZER** | 🔴 **UNSTABLE** | WebGL shader rendering, audio reactivity. | **Export Fails.** Video export has frame-drops or blank screens. MimeType issues. |
-| **LIVE UPLINK** | 🟢 **STABLE** | Real-time Gemini Live (Audio/Video) connection. | **Amnesia.** Miku forgets you after the session ends. |
+| **VISUALIZER** | 🟢 **STABLE** | WebGL shader rendering, audio reactivity. | *FIXED:* Buffer preservation and warmup phase implemented. |
+| **LIVE UPLINK** | 🟢 **STABLE** | Real-time Gemini Live (Audio/Video) connection. | *FIXED:* LTM (Long Term Memory) injection now active. |
 | **CONCEPT STUDIO**| 🟢 **STABLE** | Image Gen/Edit via Imagen/Gemini. | History is local only. Cannot "remix" old projects easily. |
 | **ANALYTICS LAB** | 🟡 **MANUAL** | Drag-and-drop CSV analysis. | No *Live* API connections (YouTube/Spotify) yet. Manual upload only. |
 | **KNOWLEDGE** | 🟢 **STABLE** | RAG-lite (Synthesis of notes). | Local only. Can't query this from the Live Uplink yet. |
+| **OTTO BRIDGE** | 🟡 **BETA** | agpt.co Copilot Agent synchronization. | Awaiting Next.js backend for true background execution. |
+| **ADIN'S PLAYGROUND**| 🟡 **BETA** | Experimental audio/frequency testing. | UI needs refinement, audio nodes are basic. |
 
 ---
 
-## 2. 🐛 THE BUG REPORT (Immediate Fixes)
+## 2. 🐛 THE BUG REPORT & ANTIGRAVITY ANALYSIS
 
-### 🚨 Priority 1: The Visualizer Export "Green Screen/Black Frame" Issue
-**Diagnosis:** The `MediaRecorder` API captures the canvas stream, but WebGL contexts (`gl`) often clear their buffer before the recorder grabs the frame.
-**The Fix:**
-1.  Initialize WebGL with `preserveDrawingBuffer: true`.
-2.  Ensure `canvas.captureStream(60)` is called *after* the first render frame.
-3.  Add a "Warmup" phase before recording starts to sync audio/video clocks.
-
-### 🚨 Priority 2: Storage "Toy Mode"
-**Diagnosis:** We are using `localStorage`. If you clear cache or switch from Desktop to Mobile, **you lose everything**. Your "Empire" is a sandcastle.
-**The Fix:** Migration to **Supabase** (Postgres + Auth).
+### 🚨 Priority 1: Storage "Toy Mode" & Client-Side Vulnerabilities
+**Diagnosis (Antigravity Analysis):** We are currently using `localStorage` and `IndexedDB`. If you clear cache or switch devices, **you lose everything**. Your "Empire" is a sandcastle. Furthermore, API keys (`GEMINI_API_KEY`) are exposed on the client-side, which violates core security protocols. The `OttoBridge` also cannot run background tasks if the browser tab is closed.
+**The Fix:** Migration to **Next.js** + **Supabase** (Postgres + Auth). We must move Gemini API calls to secure server-side API routes and utilize server-side cron jobs for autonomous agents.
 
 ---
 
@@ -121,9 +116,9 @@ ai_state (
 
 ## 5. 🔮 NEXT STEPS (Execution Order)
 
-1.  **FIX VISUALIZER:** Rewrite `components/Visualizer.tsx` to handle the `captureStream` race condition.
-2.  **CONNECT CLOUD:** Initialize a Supabase project and replace `StorageService.ts` with real DB calls.
+1.  **NEXT.JS MIGRATION:** Convert the Vite/React SPA into a Next.js App Router application to secure API keys and enable SSR.
+2.  **CONNECT CLOUD:** Initialize a Supabase project and replace `StorageService.ts` with real DB calls via Next.js Server Actions.
 3.  **EMBED MEMORY:** Integrate `text-embedding-004` (Gemini) to start vectorizing chat history.
-4.  **UNLEASH AGENTS:** Build the "Background Worker" that checks analytics while you sleep.
+4.  **UNLEASH AGENTS:** Build the "Background Worker" (Otto Bridge) that checks analytics while you sleep using Next.js background jobs/cron.
 
 **The Architect is ready to execute.**

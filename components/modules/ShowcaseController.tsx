@@ -76,7 +76,7 @@ const ShowcaseController: React.FC<ShowcaseControllerProps> = ({ onViewChange, o
     // Visualizer Refs
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const analyserRef = useRef<AnalyserNode | null>(null);
-    const rafRef = useRef<number>();
+    const rafRef = useRef<number | null>(null);
 
     // 1. PRELOAD PHASE
     const startPreload = async () => {

@@ -22,19 +22,43 @@ import UploadDeck from './components/modules/UploadDeck';
 import YouTubePipeline from './components/modules/YouTubePipeline';
 import AdinsPlayground from './components/modules/AdinsPlayground';
 import ShowcaseController from './components/modules/ShowcaseController';
+import ManagedAgentsLab from './components/modules/ManagedAgentsLab';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const savedGuest = localStorage.getItem('brzi_guest_session');
+    if (savedGuest) {
+      try {
+        setSession(JSON.parse(savedGuest));
+      } catch (e) {
+        localStorage.removeItem('brzi_guest_session');
+      }
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setSession(user);
+      if (user) {
+        setSession(user);
+        localStorage.removeItem('brzi_guest_session');
+      }
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
+
+  const handleGuestLogin = () => {
+    const guestUser = {
+      uid: 'guest_architect',
+      email: 'guest@brzi.ai',
+      displayName: 'Guest Architect',
+      isGuest: true
+    };
+    localStorage.setItem('brzi_guest_session', JSON.stringify(guestUser));
+    setSession(guestUser);
+  };
 
   const [currentView, setCurrentView] = useState<View>(() => {
     // Deep Linking Check
@@ -86,6 +110,8 @@ const App: React.FC = () => {
         return <ModuleGuard moduleName="YouTube Pipeline"><YouTubePipeline /></ModuleGuard>;
       case View.ADINS_PLAYGROUND:
         return <ModuleGuard moduleName="Adin's Playground"><AdinsPlayground /></ModuleGuard>;
+      case View.MANAGED_AGENTS_LAB:
+        return <ModuleGuard moduleName="Managed Agents Lab"><ManagedAgentsLab /></ModuleGuard>;
       default: 
         return <ModuleGuard moduleName="Dashboard"><Dashboard onNavigate={handleNavigate} /></ModuleGuard>;
     }
@@ -96,7 +122,7 @@ const App: React.FC = () => {
   }
 
   if (!session) {
-      return <Auth onLogin={() => {}} />;
+      return <Auth onLogin={() => {}} onGuestLogin={handleGuestLogin} />;
   }
 
   return (
@@ -120,13 +146,26 @@ const App: React.FC = () => {
       <main className="flex-1 h-full bg-zinc-950 relative flex flex-col">
         {/* Mobile Header */}
         <div className="md:hidden p-4 border-b border-zinc-800 flex justify-between items-center bg-black shrink-0">
-             <span className="font-bold text-white">BRZI.AI</span>
+             <span className="font-bold text-white tracking-tighter">BRZI<span className="text-cyber-green">.AI</span></span>
              <select 
                 value={currentView} 
                 onChange={(e) => handleNavigate(e.target.value as View)}
-                className="bg-zinc-900 text-xs p-2 rounded border border-zinc-700"
+                className="bg-zinc-900 text-xs p-2 rounded border border-zinc-700 font-mono text-cyber-green font-bold uppercase tracking-widest focus:outline-none"
              >
-                 {Object.values(View).filter(v => v !== View.SHOWCASE_MODE).map(v => <option key={v} value={v}>{v}</option>)}
+                 <option value={View.DASHBOARD}>Executive Dashboard</option>
+                 <option value={View.ADINS_PLAYGROUND}>Adin's World</option>
+                 <option value={View.AI_COMPANION}>AI Companion</option>
+                 <option value={View.KNOWLEDGE_BASE}>Knowledge Core</option>
+                 <option value={View.DBZ_SCANNER}>DBZ Scanner</option>
+                 <option value={View.ANALYTICS_LAB}>Analytics Lab</option>
+                 <option value={View.CONCEPT_STUDIO}>Concept Studio</option>
+                 <option value={View.AI_COMPOSER}>AI Composer</option>
+                 <option value={View.VISUALIZER}>Glitch Visualizer</option>
+                 <option value={View.UPLOAD_DECK}>DistroKid Pipeline</option>
+                 <option value={View.YOUTUBE_PIPELINE}>YouTube Pipeline</option>
+                 <option value={View.DEEP_ARCHITECT}>Strategy Node</option>
+                 <option value={View.LIVE_UPLINK}>Live Uplink</option>
+                 <option value={View.MANAGED_AGENTS_LAB}>Managed Agents</option>
              </select>
         </div>
 

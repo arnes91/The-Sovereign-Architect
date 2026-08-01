@@ -1,46 +1,19 @@
 {
-  "version": "1.0.0",
-  "last_updated": "2026-03-17T00:00:00Z",
-  "agents": {
-    "autogpt_platform": [
-      {
-        "name": "ELI Heartbeat v2 — Full Stack Monitor",
-        "id": "35f8592b-96cf-4a7a-8c7d-1dbf1aa650dd",
-        "library_id": "3f0c83ff-7500-4925-bd69-5527345b3990",
-        "capabilities": ["github_read", "gmail_monitor", "perplexity_research", "claude_synthesis", "telegram_alert"],
-        "trigger": "manual_or_cron",
-        "status": "active"
-      },
-      {
-        "name": "Hedra Character Video Generator",
-        "id": "1f47ff73-6bc0-4184-8b53-72fe2bdec338",
-        "library_id": "c185ebb5-f73a-40ab-a9c0-70f555686ee3",
-        "capabilities": ["image_generation", "hedra_api", "character_video"],
-        "trigger": "manual",
-        "status": "active"
-      }
-    ],
-    "local_agents": [
-      {
-        "name": "Antigravity",
-        "type": "orchestration",
-        "platform": "openclaw",
-        "capabilities": ["task_tracking", "config_management", "status_reporting"],
-        "status": "active"
-      },
-      {
-        "name": "ELI (Digital Twin)",
-        "type": "orchestration",
-        "platform": "planned",
-        "capabilities": ["heartbeat_engine", "project_management", "youtube_stats", "music_tracking"],
-        "status": "design_phase"
-      }
-    ],
-    "sovereign_architect_modules": [
-      "Dashboard", "AI Companion", "DBZ Scanner", "Concept Studio",
-      "Deep Architect", "Live Uplink", "AI Composer", "Analytics Lab",
-      "Knowledge Base", "Leaderboard", "Visualizer", "Upload Deck",
-      "YouTube Pipeline", "Adins Playground", "Showcase Mode", "Otto Bridge"
-    ]
-  }
+  "agents": [
+    {
+      "id": "agent-001",
+      "name": "Market Watcher",
+      "role": "Analytics",
+      "status": "ACTIVE",
+      "capabilities": ["youtube_metrics", "spotify_trends"]
+    },
+    {
+      "id": "agent-002",
+      "name": "Content Synthesizer",
+      "role": "Creative",
+      "status": "IDLE",
+      "capabilities": ["script_generation", "image_prompting"]
+    }
+  ],
+  "lastUpdated": "2026-03-21T00:00:00Z"
 }
