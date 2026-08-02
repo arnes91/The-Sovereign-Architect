@@ -121,7 +121,14 @@ const DeepArchitect: React.FC<DeepArchitectProps> = ({ demoTrigger }) => {
         return;
     }
 
-    const apiHistory = messages.map(m => ({ role: m.role, parts: [{ text: m.content }] }));
+    const recentMessages = messages.slice(-20);
+    const apiHistory = recentMessages.map(m => {
+        let textContent = m.content;
+        if (textContent.length > 5000) {
+            textContent = textContent.substring(0, 5000) + '...[Content truncated]';
+        }
+        return { role: m.role, parts: [{ text: textContent }] };
+    });
 
     try {
         let fullResponse = '';

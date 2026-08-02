@@ -514,7 +514,7 @@ ${currentInput || 'Analyze attached file payload.'}
 
       const response = await safeApiCall(async () => {
         return await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
+          model: 'gemini-3.6-flash',
           contents: { parts }
         });
       });
@@ -588,7 +588,7 @@ Task: Perform autonomous self-reflection and generate a JSON report with:
 
       const response = await safeApiCall(async () => {
         return await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
+          model: 'gemini-3.6-flash',
           contents: reflectionPrompt,
           config: { responseMimeType: 'application/json' }
         });

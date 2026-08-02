@@ -634,7 +634,7 @@ export const StorageService = {
             const cosineSimilarity = (a: number[], b: number[]) => dotProduct(a, b) / (magnitude(a) * magnitude(b));
 
             const scoredMemories = memories.map((m: any) => ({
-                content: m.content,
+                content: (m.content || '').substring(0, 3000),
                 score: cosineSimilarity(queryEmbedding, m.embedding)
             }));
 
@@ -681,7 +681,7 @@ export const StorageService = {
             };
 
             const scoredItems = validItems.map((item: any) => ({
-                content: `[${item.title}] ${item.description || item.content}`,
+                content: `[${item.title}] ${(item.description || item.content || '').substring(0, 3000)}`,
                 score: cosineSimilarity(queryEmbedding, item.embedding)
             }));
 

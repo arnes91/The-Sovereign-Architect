@@ -131,9 +131,10 @@ const AdinsPlayground: React.FC = () => {
         setIsChatting(true);
 
         try {
-            const historyForAi = chatHistory.map(m => ({
+            const recentHistory = chatHistory.slice(-20);
+            const historyForAi = recentHistory.map(m => ({
                 role: m.role === 'user' ? 'user' : 'model',
-                parts: [{ text: m.text }]
+                parts: [{ text: (m.text || '').substring(0, 1000) }]
             }));
 
             const stream = streamStrategyChat(historyForAi, userMsg.text, 'FAST', PROMPT_TEMPLATES.ROBO_BUDDY);

@@ -1,6 +1,7 @@
 
 import React, { useState, useRef } from 'react';
-import { GoogleGenAI, Type } from "@google/genai";
+import { Type } from "@google/genai";
+import { getAI, safeApiCall } from '../../services/geminiService';
 import { StorageService } from '../../services/storageService';
 import { Copy, Download, Music, Image as ImageIcon, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
 
@@ -112,16 +113,9 @@ const UploadDeck: React.FC = () => {
             
             // Step 2: Generate Cover Image
             try {
-                // @ts-ignore
-                if (window.aistudio && !await window.aistudio.hasSelectedApiKey()) {
-                    // @ts-ignore
-                    await window.aistudio.openSelectKey();
-                }
-                const paidKey = process.env.API_KEY;
-                const aiPaid = new GoogleGenAI({ apiKey: paidKey as string });
-                
-                const imageResponse = await aiPaid.models.generateContent({
-                    model: 'gemini-3.1-flash-image-preview',
+                const ai = getAI();
+                const imageResponse = await safeApiCall(async () => await ai.models.generateContent({
+                    model: 'gemini-3.1-flash-image',
                     contents: {
                         parts: [{ text: newMetadata.coverImagePrompt }]
                     },
@@ -131,7 +125,7 @@ const UploadDeck: React.FC = () => {
                             imageSize: "2K"
                         }
                     }
-                });
+                }));
                 
                 let imageUrl = '';
                 for (const part of imageResponse.candidates?.[0]?.content?.parts || []) {

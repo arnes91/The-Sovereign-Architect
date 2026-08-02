@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { GoogleGenAI, Type } from "@google/genai";
+import { Type } from "@google/genai";
 import { StorageService } from '../../services/storageService';
-import { safeApiCall } from '../../services/geminiService';
+import { safeApiCall, getAI } from '../../services/geminiService';
 import { getAccessToken, googleSignIn } from '../../services/workspaceService';
 import { Copy, Download, Video, Image as ImageIcon, CheckCircle2, Loader2, Sparkles, Youtube } from 'lucide-react';
 
@@ -104,16 +104,9 @@ const YouTubePipeline: React.FC = () => {
             
             // Step 2: Generate Thumbnail Image
             try {
-                // @ts-ignore
-                if (window.aistudio && !await window.aistudio.hasSelectedApiKey()) {
-                    // @ts-ignore
-                    await window.aistudio.openSelectKey();
-                }
-                const paidKey = process.env.API_KEY;
-                const aiPaid = new GoogleGenAI({ apiKey: paidKey as string });
-                
-                const imageResponse = await safeApiCall(async () => await aiPaid.models.generateContent({
-                    model: 'gemini-3.1-flash-image-preview',
+                const ai = getAI();
+                const imageResponse = await safeApiCall(async () => await ai.models.generateContent({
+                    model: 'gemini-3.1-flash-image',
                     contents: {
                         parts: [{ text: newMetadata.thumbnailPrompt }]
                     },

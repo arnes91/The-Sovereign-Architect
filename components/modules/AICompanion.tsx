@@ -7,6 +7,7 @@ import { KeepSyncService } from '../../services/keepSyncService';
 import { LongTermMemoryService } from '../../services/longTermMemoryService';
 import { DriveFilePickerModal } from '../core/DriveFilePickerModal';
 import { PERSONALITIES } from '../../config/personalities';
+import { PROMPT_TEMPLATES } from '../../config/promptTemplates';
 import { HardDrive, Bookmark, Check } from 'lucide-react';
 
 interface Message {
@@ -122,7 +123,7 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
     if (!textToSend.trim() || isStreaming) return;
 
     const newMessage: Message = {
-      id: Date.now().toString(),
+      id: (Date.now() + Math.random()).toString(),
       role: 'user',
       content: textToSend,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -150,7 +151,7 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
 3. **Engagement:** Reply to the first 10 comments on your latest video within 1 hour.`;
              
              setMessages(prev => [...prev, {
-                id: (Date.now() + 1).toString(),
+                id: (Date.now() + Math.random()).toString(),
                 role: 'model',
                 content: demoResponse,
                 timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -163,10 +164,16 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
     try {
         // Slice history to last 20 messages to prevent token limit errors
         const recentMessages = messages.slice(-20);
-        const apiHistory = recentMessages.map(m => ({
-            role: m.role,
-            parts: [{ text: m.content }]
-        }));
+        const apiHistory = recentMessages.map(m => {
+            let textContent = m.content;
+            if (textContent.length > 5000 && textContent.includes('[ATTACHED DRIVE FILE:')) {
+                textContent = textContent.substring(0, 5000) + '...[Content truncated for context window]';
+            }
+            return {
+                role: m.role,
+                parts: [{ text: textContent }]
+            };
+        });
 
         const styleName = PERSONALITIES.AI_COMPANION.styles[activeStyle].name;
         const styleInstruction = PROMPT_TEMPLATES.AI_COMPANION_STYLES[activeStyle];
@@ -200,7 +207,7 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
                 if (!hasStarted) {
                     hasStarted = true;
                     setMessages(prev => [...prev, {
-                        id: (Date.now() + 1).toString(),
+                        id: (Date.now() + Math.random()).toString(),
                         role: 'model',
                         content: fullResponse,
                         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -223,7 +230,7 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
             errorText = "⚠️ SYSTEM ERROR: Region Lock Detected.";
         }
         setMessages(prev => [...prev, {
-            id: Date.now().toString(),
+            id: (Date.now() + Math.random()).toString(),
             role: 'model',
             content: errorText,
             timestamp: new Date().toLocaleTimeString()
