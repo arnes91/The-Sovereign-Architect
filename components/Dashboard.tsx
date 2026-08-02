@@ -7,6 +7,8 @@ import { signOut } from 'firebase/auth';
 import { WorkspaceService, initAuth, getAccessToken, googleSignIn } from '../services/workspaceService';
 import { StorageService } from '../services/storageService';
 import { LoggerService, LogEntry } from '../services/loggerService';
+import PlaylistPulse from './modules/PlaylistPulse';
+import ReleasePipelineTracker from './modules/ReleasePipelineTracker';
 
 interface DashboardProps {
     onNavigate?: (view: View) => void;
@@ -214,6 +216,16 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                     </div>
                 </div>
             </div>
+        </div>
+
+        {/* RELEASE AUTOMATION & GROWTH */}
+        <h2 className="text-xs md:text-sm font-mono text-zinc-500 mb-3 mt-10 uppercase tracking-widest flex items-center gap-2">
+            <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+            RELEASE AUTOMATION & GROWTH
+        </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10 h-80">
+            <ReleasePipelineTracker />
+            <PlaylistPulse />
         </div>
 
         {/* WORKSPACE NEXUS */}

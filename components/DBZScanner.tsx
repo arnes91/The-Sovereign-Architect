@@ -212,7 +212,7 @@ const DBZScanner: React.FC = () => {
           setUser(updatedUser);
 
           await StorageService.saveScan({
-              id: Date.now().toString(),
+              id: (Date.now() + Math.random()).toString(),
               timestamp: Date.now(),
               power,
               taunt: text,

@@ -164,7 +164,7 @@ High correlation between *YouTube Shorts* views and *Spotify* surges.
 
           // Save Report
           const newReport: AnalyticsReport = {
-              id: Date.now().toString(),
+              id: (Date.now() + Math.random()).toString(),
               title: `Analysis: ${files.map(f => f.name).join(', ')}`,
               date: Date.now(),
               summary: result || "",
@@ -355,7 +355,7 @@ High correlation between *YouTube Shorts* views and *Spotify* surges.
                               <button 
                                   onClick={async () => {
                                       const newReport: AnalyticsReport = {
-                                          id: Date.now().toString(),
+                                          id: (Date.now() + Math.random()).toString(),
                                           title: `Analysis: ${files.map(f => f.name).join(', ') || 'Live Intelligence'}`,
                                           date: Date.now(),
                                           summary: analysis,

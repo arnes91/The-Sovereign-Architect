@@ -51,7 +51,7 @@ const UploadDeck: React.FC = () => {
         setError(null);
         
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+            const ai = getAI();
             
             // Step 1: Analyze Audio & Generate Metadata
             const latestReports = await StorageService.getAnalyticsReports();
@@ -78,7 +78,7 @@ const UploadDeck: React.FC = () => {
             `;
             
             const response = await ai.models.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.1-flash',
                 contents: {
                     parts: [
                         { inlineData: { mimeType: audioFile.type || 'audio/mp3', data: audioBase64 } },
@@ -105,7 +105,7 @@ const UploadDeck: React.FC = () => {
             
             const json = JSON.parse(response.text || "{}");
             const newMetadata: ReleaseMetadata = {
-                id: Date.now().toString(),
+                id: (Date.now() + Math.random()).toString(),
                 ...json,
                 timestamp: new Date().toISOString()
             };
@@ -153,7 +153,7 @@ const UploadDeck: React.FC = () => {
             
             // Step 4: Save to Knowledge Base
             await StorageService.saveKnowledgeItem({
-                id: Date.now().toString(),
+                id: (Date.now() + Math.random()).toString(),
                 type: 'CONTEXTUAL',
                 title: `Release: ${newMetadata.optimizedTitle}`,
                 content: `DistroKid Release Package Generated:\n\nTitle: ${newMetadata.optimizedTitle}\nPrimary Genre: ${newMetadata.primaryGenre}\nSecondary Genre: ${newMetadata.secondaryGenre}\nSubgenre: ${newMetadata.electronicSubgenre}\nLanguage: ${newMetadata.language}\n\nDescription:\n${newMetadata.description}\n\nCover Art Prompt:\n${newMetadata.coverImagePrompt}`,

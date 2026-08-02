@@ -464,7 +464,7 @@ const LiveUplink: React.FC = () => {
     if (!chatInput.trim() && !attachedFile) return;
 
     const userMsg: ChatMessage = {
-      id: `msg-${Date.now()}`,
+      id: `msg-${Date.now()}-${Math.random()}`,
       sender: 'user',
       text: chatInput,
       file: attachedFile ? { name: attachedFile.name, type: attachedFile.type, dataUrl: attachedFile.dataUrl } : undefined,
@@ -514,7 +514,7 @@ ${currentInput || 'Analyze attached file payload.'}
 
       const response = await safeApiCall(async () => {
         return await ai.models.generateContent({
-          model: 'gemini-3.6-flash',
+          model: 'gemini-3.1-flash',
           contents: { parts }
         });
       });
@@ -522,7 +522,7 @@ ${currentInput || 'Analyze attached file payload.'}
       const responseText = response.text || "No response generated from Neural Core.";
 
       const mikuMsg: ChatMessage = {
-        id: `miku-${Date.now()}`,
+        id: `miku-${Date.now()}-${Math.random()}`,
         sender: 'miku',
         text: responseText,
         timestamp: Date.now()
@@ -545,7 +545,7 @@ ${currentInput || 'Analyze attached file payload.'}
     } catch (err: any) {
       console.error("Chat Uplink Error:", err);
       setChatMessages(prev => [...prev, {
-        id: `sys-err-${Date.now()}`,
+        id: `sys-err-${Date.now()}-${Math.random()}`,
         sender: 'system',
         text: `CRITICAL UPLINK ERROR: ${err.message}`,
         timestamp: Date.now()
@@ -588,7 +588,7 @@ Task: Perform autonomous self-reflection and generate a JSON report with:
 
       const response = await safeApiCall(async () => {
         return await ai.models.generateContent({
-          model: 'gemini-3.6-flash',
+          model: 'gemini-3.1-flash',
           contents: reflectionPrompt,
           config: { responseMimeType: 'application/json' }
         });
@@ -597,7 +597,7 @@ Task: Perform autonomous self-reflection and generate a JSON report with:
       const result = JSON.parse(response.text || '{}');
 
       const newReport: EvolutionReport = {
-        id: `evo-${Date.now()}`,
+        id: `evo-${Date.now()}-${Math.random()}`,
         timestamp: Date.now(),
         reflection: result.reflection || "Self-evolution analysis complete. Neural nodes operating at peak resonance.",
         adaptations: result.adaptations || ["Enhanced cross-context bus listener", "Updated vector retrieval top-K search", "Refined Glitch Core audio synthesis"],

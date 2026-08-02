@@ -48,7 +48,7 @@ const YouTubePipeline: React.FC = () => {
         setError(null);
         
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+            const ai = getAI();
             
             // Step 1: Analyze Media & Generate Metadata
             const latestReports = await StorageService.getAnalyticsReports();
@@ -72,7 +72,7 @@ const YouTubePipeline: React.FC = () => {
             `;
             
             const response = await safeApiCall(async () => await ai.models.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-3.1-flash',
                 contents: {
                     parts: [
                         { inlineData: { mimeType: mediaFile.type || 'audio/mp3', data: mediaBase64 } },
@@ -96,7 +96,7 @@ const YouTubePipeline: React.FC = () => {
             
             const json = JSON.parse(response.text || "{}");
             const newMetadata: YouTubeMetadata = {
-                id: Date.now().toString(),
+                id: (Date.now() + Math.random()).toString(),
                 ...json,
                 timestamp: new Date().toISOString()
             };
@@ -141,7 +141,7 @@ const YouTubePipeline: React.FC = () => {
             
             // Step 3: Save to Knowledge Base
             await StorageService.saveKnowledgeItem({
-                id: Date.now().toString(),
+                id: (Date.now() + Math.random()).toString(),
                 type: 'CONTEXTUAL',
                 title: `YouTube Release: ${newMetadata.optimizedTitle}`,
                 content: `YouTube Release Package Generated:\n\nTitle: ${newMetadata.optimizedTitle}\n\nTags: ${newMetadata.tags}\n\nDescription:\n${newMetadata.description}\n\nThumbnail Prompt:\n${newMetadata.thumbnailPrompt}`,

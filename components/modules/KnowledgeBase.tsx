@@ -58,7 +58,7 @@ const KnowledgeBase: React.FC = () => {
   const handleSave = async () => {
     if (!title || !content) return;
     const newItem: KnowledgeItem = {
-      id: Date.now().toString(),
+      id: (Date.now() + Math.random()).toString(),
       type,
       title,
       content,
@@ -205,7 +205,7 @@ const KnowledgeBase: React.FC = () => {
               for (const item of synthesizedData) {
                   if (item.title && item.content) {
                       await StorageService.saveKnowledgeItem({
-                          id: Date.now().toString() + Math.random(),
+                          id: (Date.now() + Math.random()).toString() + Math.random(),
                           type: item.type === 'CONTEXTUAL' ? 'CONTEXTUAL' : 'UNIVERSAL',
                           title: `[SYNTH] ${item.title}`,
                           content: item.content,
@@ -262,7 +262,7 @@ const KnowledgeBase: React.FC = () => {
           }
           
           const newItem: KnowledgeItem = {
-              id: Date.now().toString(),
+              id: (Date.now() + Math.random()).toString(),
               type: 'CONTEXTUAL',
               title: `[MANUAL DRIVE] Doc ${docId.substring(0, 8)}`,
               content,

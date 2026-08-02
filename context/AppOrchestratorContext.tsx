@@ -12,12 +12,25 @@ interface UserPersona {
   bio: string;
 }
 
+export interface SystemNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR' | 'ACTION_REQUIRED';
+  actionText?: string;
+  actionPayload?: any;
+  timestamp: number;
+}
+
 interface AppOrchestratorContextType {
   activeModule: string;
   setActiveModule: (module: string) => void;
   userPersona: UserPersona;
   recentBusEvents: ContextEvent[];
   liveMemorySummary: string;
+  notifications: SystemNotification[];
+  pushNotification: (notification: Omit<SystemNotification, 'id' | 'timestamp'>) => void;
+  dismissNotification: (id: string) => void;
   publishContextEvent: (event: Omit<ContextEvent, 'id' | 'timestamp'>) => Promise<void>;
   logAnalytics: (action: string, label?: string, metadata?: any) => void;
   refreshGlobalMemory: () => Promise<void>;
@@ -39,7 +52,8 @@ export const AppOrchestratorProvider: React.FC<{ children: ReactNode }> = ({ chi
   const [userPersona] = useState<UserPersona>(DEFAULT_PERSONA);
   const [recentBusEvents, setRecentBusEvents] = useState<ContextEvent[]>([]);
   const [liveMemorySummary, setLiveMemorySummary] = useState<string>('');
-
+  const [notifications, setNotifications] = useState<SystemNotification[]>([]);
+  
   const { trackEvent } = useAnalytics(activeModule);
 
   useEffect(() => {
@@ -49,6 +63,17 @@ export const AppOrchestratorProvider: React.FC<{ children: ReactNode }> = ({ chi
     });
 
     refreshGlobalMemory();
+    
+    // Demo mock: Automatically push a 'Ready for Final Push' notification for demo purposes
+    setTimeout(() => {
+      pushNotification({
+        title: 'READY FOR FINAL PUSH',
+        message: 'Track "Glitch Sevdah" has all required assets.',
+        type: 'ACTION_REQUIRED',
+        actionText: 'REVIEW CHECKLIST',
+        actionPayload: { trackName: 'Glitch Sevdah' }
+      });
+    }, 5000);
 
     return () => unsubscribe();
   }, []);
@@ -69,6 +94,19 @@ export const AppOrchestratorProvider: React.FC<{ children: ReactNode }> = ({ chi
       action: 'MODULE_CHANGE',
       label: `Switched module to ${module}`
     });
+  };
+
+  const pushNotification = (notification: Omit<SystemNotification, 'id' | 'timestamp'>) => {
+    const newNotification: SystemNotification = {
+      ...notification,
+      id: Math.random().toString(36).substring(2, 9),
+      timestamp: Date.now()
+    };
+    setNotifications(prev => [newNotification, ...prev]);
+  };
+
+  const dismissNotification = (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
   const publishContextEvent = async (event: Omit<ContextEvent, 'id' | 'timestamp'>) => {
@@ -97,12 +135,46 @@ export const AppOrchestratorProvider: React.FC<{ children: ReactNode }> = ({ chi
         userPersona,
         recentBusEvents,
         liveMemorySummary,
+        notifications,
+        pushNotification,
+        dismissNotification,
         publishContextEvent,
         logAnalytics,
         refreshGlobalMemory,
         saveNoteToKeep
       }}
     >
+      {/* Global Notifications Overlay */}
+      <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
+        {notifications.map(notif => (
+          <div key={notif.id} className={`pointer-events-auto w-80 bg-zinc-950 border rounded-lg shadow-2xl overflow-hidden flex flex-col transition-all transform animate-in fade-in slide-in-from-right-8 ${notif.type === 'ACTION_REQUIRED' ? 'border-amber-500/50' : 'border-zinc-800'}`}>
+            <div className={`h-1 w-full ${notif.type === 'ACTION_REQUIRED' ? 'bg-amber-500 animate-pulse' : notif.type === 'SUCCESS' ? 'bg-cyber-green' : notif.type === 'ERROR' ? 'bg-red-500' : 'bg-blue-500'}`}></div>
+            <div className="p-4 flex gap-3">
+              <div className="flex-1">
+                <h4 className="text-xs font-bold font-mono text-white mb-1 uppercase tracking-wider">{notif.title}</h4>
+                <p className="text-sm text-zinc-400">{notif.message}</p>
+                {notif.actionText && (
+                  <button 
+                    onClick={() => {
+                      dismissNotification(notif.id);
+                      if (notif.actionPayload) {
+                        // Normally handle routing or showing a modal here.
+                        console.log("Action triggered", notif.actionPayload);
+                      }
+                    }}
+                    className="mt-3 text-xs font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30 px-3 py-1.5 rounded hover:bg-amber-500 hover:text-black transition-colors"
+                  >
+                    {notif.actionText}
+                  </button>
+                )}
+              </div>
+              <button onClick={() => dismissNotification(notif.id)} className="text-zinc-600 hover:text-white transition-colors h-fit p-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
       {children}
     </AppOrchestratorContext.Provider>
   );

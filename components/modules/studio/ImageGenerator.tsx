@@ -66,7 +66,7 @@ export const ImageGenerator: React.FC<ImageGeneratorProps> = ({ demoTrigger }) =
 
             // Save to History
             const newItem: GeneratedImage = {
-                id: Date.now().toString(),
+                id: (Date.now() + Math.random()).toString(),
                 url: finalUrl,
                 prompt,
                 aspectRatio,
