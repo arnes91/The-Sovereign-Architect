@@ -23,16 +23,33 @@ const AnalyticsLab: React.FC<AnalyticsLabProps> = ({ demoTrigger }) => {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [status, setStatus] = useState<'IDLE' | 'FETCHING' | 'ANALYZING' | 'DONE'>('IDLE');
-  const [showHistory, setShowHistory] = useState(false);
+  const [activeTab, setActiveTab] = useState<'REPORTS' | 'HISTORY' | 'RUNDOWN'>('REPORTS');
   const [reports, setReports] = useState<AnalyticsReport[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
   const [savedKeep, setSavedKeep] = useState(false);
 
   const { userPersona, liveMemorySummary, logAnalytics } = useAppOrchestrator();
 
   // Reload history on mount/view toggle
   useEffect(() => {
-      StorageService.getAnalyticsReports().then(setReports);
-  }, [showHistory]);
+      if (activeTab === 'HISTORY') {
+          StorageService.getAnalyticsReports().then(setReports);
+      } else if (activeTab === 'RUNDOWN') {
+          // Fetch analytics events (simplified for now via context bus or mock if firestore not exposed via service)
+          import('firebase/firestore').then(async ({ collection, getDocs, query, orderBy, limit }) => {
+              try {
+                  const { db, isFirebaseConfigured } = await import('../../firebase');
+                  if (isFirebaseConfigured) {
+                      const q = query(collection(db, 'analytics_events'), orderBy('timestamp', 'desc'), limit(50));
+                      const snapshot = await getDocs(q);
+                      setEvents(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+                  }
+              } catch (e) {
+                  console.warn("Could not fetch analytics events", e);
+              }
+          });
+      }
+  }, [activeTab]);
 
   // --- DEMO EFFECT ---
   useEffect(() => {
@@ -172,7 +189,7 @@ High correlation between *YouTube Shorts* views and *Spotify* surges.
 
   const loadReportContent = (report: AnalyticsReport) => {
       setAnalysis(report.summary);
-      setShowHistory(false);
+      setActiveTab('REPORTS');
   };
 
   return (
@@ -182,12 +199,29 @@ High correlation between *YouTube Shorts* views and *Spotify* surges.
             <h2 className="text-3xl font-sans font-bold text-white">ANALYTICS LAB</h2>
             <p className="text-zinc-500 font-mono text-sm">Multi-Source Intelligence Ingestion</p>
         </div>
-        <button onClick={() => setShowHistory(!showHistory)} className="text-xs font-mono bg-zinc-800 px-3 py-1 rounded text-white">
-            {showHistory ? 'BACK TO LAB' : 'HISTORY'}
-        </button>
+        <div className="flex gap-2">
+            <button 
+                onClick={() => setActiveTab('REPORTS')} 
+                className={`text-xs font-mono px-3 py-1 rounded transition-colors ${activeTab === 'REPORTS' ? 'bg-cyber-green text-black' : 'bg-zinc-800 text-white hover:bg-zinc-700'}`}
+            >
+                LAB
+            </button>
+            <button 
+                onClick={() => setActiveTab('HISTORY')} 
+                className={`text-xs font-mono px-3 py-1 rounded transition-colors ${activeTab === 'HISTORY' ? 'bg-cyber-green text-black' : 'bg-zinc-800 text-white hover:bg-zinc-700'}`}
+            >
+                HISTORY
+            </button>
+            <button 
+                onClick={() => setActiveTab('RUNDOWN')} 
+                className={`text-xs font-mono px-3 py-1 rounded transition-colors ${activeTab === 'RUNDOWN' ? 'bg-cyber-purple text-black' : 'bg-zinc-800 text-white hover:bg-zinc-700'}`}
+            >
+                RUNDOWN
+            </button>
+        </div>
       </div>
 
-      {showHistory ? (
+      {activeTab === 'HISTORY' ? (
           <div className="grid grid-cols-1 gap-4 overflow-y-auto">
               {reports.length === 0 && <p className="text-zinc-500">No previous reports.</p>}
               {reports.map(r => (
@@ -199,6 +233,37 @@ High correlation between *YouTube Shorts* views and *Spotify* surges.
                       <button onClick={(e) => { e.stopPropagation(); deleteReport(r.id); }} className="text-red-500 text-xs hover:text-red-400">DELETE</button>
                   </div>
               ))}
+          </div>
+      ) : activeTab === 'RUNDOWN' ? (
+          <div className="flex-1 overflow-y-auto flex flex-col gap-4">
+              <h3 className="text-xl font-sans font-bold text-cyber-purple mb-2">Activity Rundown</h3>
+              <p className="text-zinc-400 font-mono text-xs mb-4">A global chronological ledger of all actions across the orchestrator.</p>
+              
+              {events.length === 0 ? (
+                  <p className="text-zinc-500 font-mono text-sm">No activity events found in the database.</p>
+              ) : (
+                  <div className="space-y-3">
+                      {events.map((evt, idx) => (
+                          <div key={evt.id || idx} className="bg-zinc-900/50 border border-zinc-800 p-4 rounded-lg flex flex-col gap-2">
+                              <div className="flex justify-between items-start">
+                                  <div className="flex items-center gap-2">
+                                      <span className="bg-zinc-800 text-zinc-300 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase">{evt.moduleId}</span>
+                                      <span className="text-cyber-green text-xs font-mono font-bold">{evt.action}</span>
+                                  </div>
+                                  <span className="text-[10px] text-zinc-500 font-mono">{new Date(evt.timestamp).toLocaleString()}</span>
+                              </div>
+                              {evt.label && (
+                                  <p className="text-sm text-white font-mono">{evt.label}</p>
+                              )}
+                              {evt.metadata && Object.keys(evt.metadata).length > 0 && (
+                                  <pre className="text-[10px] text-zinc-400 bg-black/50 p-2 rounded border border-zinc-800/50 mt-2 overflow-x-auto">
+                                      {JSON.stringify(evt.metadata, null, 2)}
+                                  </pre>
+                              )}
+                          </div>
+                      ))}
+                  </div>
+              )}
           </div>
       ) : (
           <div className="flex-1 flex flex-col md:flex-row gap-6 min-h-0">

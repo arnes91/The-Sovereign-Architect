@@ -4,6 +4,7 @@ import { Type } from "@google/genai";
 import { getAI, safeApiCall } from '../../services/geminiService';
 import { StorageService } from '../../services/storageService';
 import { Copy, Download, Music, Image as ImageIcon, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
+import { useAppOrchestrator } from '../../context/AppOrchestratorContext';
 
 interface ReleaseMetadata {
     id: string;
@@ -19,6 +20,7 @@ interface ReleaseMetadata {
 }
 
 const UploadDeck: React.FC = () => {
+    const { logAnalytics } = useAppOrchestrator();
     const [audioFile, setAudioFile] = useState<File | null>(null);
     const [audioBase64, setAudioBase64] = useState<string | null>(null);
     const [metadata, setMetadata] = useState<ReleaseMetadata | null>(null);
@@ -76,7 +78,7 @@ const UploadDeck: React.FC = () => {
             `;
             
             const response = await ai.models.generateContent({
-                model: 'gemini-3.1-pro-preview',
+                model: 'gemini-3.6-flash',
                 contents: {
                     parts: [
                         { inlineData: { mimeType: audioFile.type || 'audio/mp3', data: audioBase64 } },
@@ -110,6 +112,8 @@ const UploadDeck: React.FC = () => {
             
             setMetadata(newMetadata);
             setStatus('GENERATING_IMAGE');
+            logAnalytics('DISTROKID_METADATA_GENERATED', newMetadata.optimizedTitle, newMetadata);
+            
             
             // Step 2: Generate Cover Image
             try {

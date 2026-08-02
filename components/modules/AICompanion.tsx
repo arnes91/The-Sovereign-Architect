@@ -162,6 +162,12 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
     }
 
     try {
+        // Fetch Knowledge Base
+        const kbItems = await StorageService.getKnowledgeItems();
+        const kbContext = kbItems.length > 0
+            ? `\n\n[USER KNOWLEDGE BASE]:\nThe user has the following saved notes and documents:\n${kbItems.map(item => `- ${item.title}:\n${item.content}`).join('\n\n')}`
+            : "";
+
         // Slice history to last 20 messages to prevent token limit errors
         const recentMessages = messages.slice(-20);
         const apiHistory = recentMessages.map(m => {
@@ -186,6 +192,7 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
         const systemInstruction = `
           ${PROMPT_TEMPLATES.AI_COMPANION_CORE}
           ${memoryInjection}
+          ${kbContext}
           --- CURRENT INTERACTION MODE: ${styleName} ---
           ${styleInstruction}
         `;

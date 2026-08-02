@@ -5,9 +5,10 @@ import { View } from '../../types';
 interface SidebarProps {
   currentView: View;
   setView: (view: View) => void;
+  isMobile?: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isMobile }) => {
   const menu = [
     { id: View.DASHBOARD, label: 'EXECUTIVE', icon: 'M4 6h16M4 12h16m-7 6h7' },
     { id: View.ADINS_PLAYGROUND, label: "ADIN'S WORLD", icon: 'M13 10V3L4 14h7v7l9-11h-7z' }, // Rocket/Bolt icon reuse
@@ -30,7 +31,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView }) => {
   };
 
   return (
-    <div className="w-64 border-r border-zinc-800 bg-black flex flex-col h-full hidden md:flex">
+    <div className={`w-64 border-r border-zinc-800 bg-black flex flex-col h-full ${isMobile ? 'flex' : 'hidden md:flex'}`}>
       <div className="p-6">
         <div className="text-2xl font-bold tracking-tighter text-white">BRZI<span className="text-cyber-green">.AI</span></div>
         <div className="text-[10px] font-mono text-zinc-600 mt-1">SOVEREIGN ARCHITECTURE v8.0</div>

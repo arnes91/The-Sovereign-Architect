@@ -7,8 +7,10 @@ import { WorkspaceService, loadGooglePicker, FIREBASE_CONFIG } from '../../servi
 import { DriveFilePickerModal } from '../core/DriveFilePickerModal';
 import { contextBus } from '../../services/contextBusService';
 import { Bookmark, CheckSquare, Mail, HardDrive, Zap, Share2 } from 'lucide-react';
+import { useAppOrchestrator } from '../../context/AppOrchestratorContext';
 
 const KnowledgeBase: React.FC = () => {
+  const { logAnalytics } = useAppOrchestrator();
   // Initialize from storage synchronously to prevent empty flash/loss
   const [items, setItems] = useState<KnowledgeItem[]>([]);
   const [view, setView] = useState<'LIST' | 'CREATE' | 'SYNTHESIS_MODE'>('LIST');
@@ -64,6 +66,7 @@ const KnowledgeBase: React.FC = () => {
       createdAt: Date.now()
     };
     await StorageService.saveKnowledgeItem(newItem);
+    logAnalytics('KNOWLEDGE_ITEM_SAVED', newItem.title, newItem);
     await contextBus.publish({
       sourceModule: 'KNOWLEDGE_BASE',
       type: 'ITEM_CREATED',
@@ -659,6 +662,7 @@ const KnowledgeBase: React.FC = () => {
             createdAt: Date.now()
           };
           await StorageService.saveKnowledgeItem(newItem);
+          logAnalytics('DRIVE_FILE_IMPORTED', file.name, newItem);
           await contextBus.publish({
             sourceModule: 'KNOWLEDGE_BASE',
             type: 'ITEM_CREATED',

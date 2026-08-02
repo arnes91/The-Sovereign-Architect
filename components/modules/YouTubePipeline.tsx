@@ -4,6 +4,7 @@ import { StorageService } from '../../services/storageService';
 import { safeApiCall, getAI } from '../../services/geminiService';
 import { getAccessToken, googleSignIn } from '../../services/workspaceService';
 import { Copy, Download, Video, Image as ImageIcon, CheckCircle2, Loader2, Sparkles, Youtube } from 'lucide-react';
+import { useAppOrchestrator } from '../../context/AppOrchestratorContext';
 
 interface YouTubeMetadata {
     id: string;
@@ -16,6 +17,7 @@ interface YouTubeMetadata {
 }
 
 const YouTubePipeline: React.FC = () => {
+    const { logAnalytics } = useAppOrchestrator();
     const [mediaFile, setMediaFile] = useState<File | null>(null);
     const [mediaBase64, setMediaBase64] = useState<string | null>(null);
     const [metadata, setMetadata] = useState<YouTubeMetadata | null>(null);
@@ -70,7 +72,7 @@ const YouTubePipeline: React.FC = () => {
             `;
             
             const response = await safeApiCall(async () => await ai.models.generateContent({
-                model: 'gemini-3.1-pro-preview',
+                model: 'gemini-3.6-flash',
                 contents: {
                     parts: [
                         { inlineData: { mimeType: mediaFile.type || 'audio/mp3', data: mediaBase64 } },
@@ -101,6 +103,8 @@ const YouTubePipeline: React.FC = () => {
             
             setMetadata(newMetadata);
             setStatus('GENERATING_IMAGE');
+            logAnalytics('YOUTUBE_METADATA_GENERATED', newMetadata.optimizedTitle, newMetadata);
+            
             
             // Step 2: Generate Thumbnail Image
             try {

@@ -101,6 +101,7 @@ const App: React.FC = () => {
   // We separate this from currentView so the Controller persists while changing views
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [demoAction, setDemoAction] = useState<string>("");
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
   const handleNavigate = (view: View) => {
       if (view === View.SHOWCASE_MODE) {
@@ -228,27 +229,37 @@ const App: React.FC = () => {
           {/* Mobile Header */}
           <div className="md:hidden p-4 border-b border-zinc-800 flex justify-between items-center bg-black shrink-0 z-50">
                <span className="font-bold text-white tracking-tighter">BRZI<span className="text-cyber-green">.AI</span></span>
-               <select 
-                  value={currentView} 
-                  onChange={(e) => handleNavigate(e.target.value as View)}
-                  className="bg-zinc-900 text-xs p-2 rounded border border-zinc-700 font-mono text-cyber-green font-bold uppercase tracking-widest focus:outline-none"
+               <button 
+                  onClick={() => setIsMobileDrawerOpen(true)}
+                  className="p-2 text-zinc-400 hover:text-white focus:outline-none"
                >
-                   <option value={View.DASHBOARD}>Executive Dashboard</option>
-                   <option value={View.ADINS_PLAYGROUND}>Adin's World</option>
-                   <option value={View.AI_COMPANION}>AI Core: Companion</option>
-                   <option value={View.DEEP_ARCHITECT}>AI Core: Strategy Node</option>
-                   <option value={View.LIVE_UPLINK}>AI Core: Live Uplink</option>
-                   <option value={View.KNOWLEDGE_BASE}>Knowledge Core</option>
-                   <option value={View.DBZ_SCANNER}>DBZ Scanner</option>
-                   <option value={View.ANALYTICS_LAB}>Analytics Lab</option>
-                   <option value={View.CONCEPT_STUDIO}>Concept Studio</option>
-                   <option value={View.AI_COMPOSER}>AI Composer</option>
-                   <option value={View.VISUALIZER}>Glitch Visualizer</option>
-                   <option value={View.UPLOAD_DECK}>DistroKid Pipeline</option>
-                   <option value={View.YOUTUBE_PIPELINE}>YouTube Pipeline</option>
-                   <option value={View.MANAGED_AGENTS_LAB}>Managed Agents</option>
-               </select>
+                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+               </button>
           </div>
+
+          {/* Mobile Drawer */}
+          {isMobileDrawerOpen && (
+            <div className="md:hidden fixed inset-0 z-[100] flex">
+              <div 
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+                onClick={() => setIsMobileDrawerOpen(false)}
+              ></div>
+              <div className="relative w-64 h-full bg-zinc-950 border-l border-zinc-800 shadow-2xl mr-auto flex flex-col transform transition-transform duration-300">
+                <div className="p-4 border-b border-zinc-800 flex justify-between items-center bg-black">
+                   <span className="font-bold text-white tracking-tighter text-sm">NAVIGATION</span>
+                   <button 
+                      onClick={() => setIsMobileDrawerOpen(false)}
+                      className="p-1 text-zinc-500 hover:text-white"
+                   >
+                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                   </button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  <Sidebar currentView={currentView} setView={(v) => { handleNavigate(v); setIsMobileDrawerOpen(false); }} isMobile={true} />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto overflow-x-hidden relative">
               {renderView()}
