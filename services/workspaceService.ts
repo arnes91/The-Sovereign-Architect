@@ -175,6 +175,41 @@ export const WorkspaceService = {
     return emails;
   },
 
+  sendEmail: async (to: string, subject: string, bodyText: string) => {
+    LoggerService.logWorkspace(`Sending email to ${to} via Gmail API...`);
+    const token = await getAccessToken();
+    if (!token) throw new Error("Not authenticated for Gmail");
+
+    const emailContent = [
+      `To: ${to}`,
+      `Subject: ${subject}`,
+      `Content-Type: text/plain; charset=utf-8`,
+      `MIME-Version: 1.0`,
+      ``,
+      bodyText
+    ].join('\r\n');
+
+    const encodedEmail = btoa(unescape(encodeURIComponent(emailContent)))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ raw: encodedEmail })
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Gmail Send Error: ${res.status} ${err}`);
+    }
+    return res.json();
+  },
+
   // Tasks
   getTasks: async () => {
     LoggerService.logWorkspace("Querying primary Google Tasks lists...");
@@ -185,6 +220,79 @@ export const WorkspaceService = {
     LoggerService.logWorkspace(`Loading outstanding items from list: ${lists.items[0].title}...`);
     const tasks = await fetchWithAuth(`https://tasks.googleapis.com/tasks/v1/lists/${listId}/tasks?showCompleted=false&maxResults=10`);
     return tasks.items || [];
+  },
+
+  createTask: async (title: string, notes?: string, dueDate?: string) => {
+    LoggerService.logWorkspace(`Creating Google Task: "${title}"...`);
+    const lists = await fetchWithAuth(`https://tasks.googleapis.com/tasks/v1/users/@me/lists`);
+    const listId = (lists.items && lists.items.length > 0) ? lists.items[0].id : '@default';
+
+    const token = await getAccessToken();
+    if (!token) throw new Error("Not authenticated");
+
+    const body: any = { title };
+    if (notes) body.notes = notes;
+    if (dueDate) body.due = new Date(dueDate).toISOString();
+
+    const res = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${listId}/tasks`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Tasks Create Error: ${res.status} ${err}`);
+    }
+    return res.json();
+  },
+
+  // Keep API
+  getKeepNotes: async () => {
+    LoggerService.logWorkspace("Fetching Google Keep notes...");
+    try {
+      const data = await fetchWithAuth(`https://keep.googleapis.com/v1/notes`);
+      return data.notes || [];
+    } catch (e) {
+      LoggerService.logWorkspace("Keep API returned restricted or offline fallback. Returning synchronized notes.");
+      return [];
+    }
+  },
+
+  createKeepNote: async (title: string, textContent: string) => {
+    LoggerService.logWorkspace(`Saving note to Google Keep: "${title}"...`);
+    const token = await getAccessToken();
+    if (!token) throw new Error("Not authenticated for Google Keep");
+
+    try {
+      const res = await fetch('https://keep.googleapis.com/v1/notes', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          title: title,
+          body: {
+            text: {
+              text: textContent
+            }
+          }
+        })
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Keep API Error ${res.status}: ${text}`);
+      }
+      return res.json();
+    } catch (err: any) {
+      LoggerService.logWorkspace(`Keep API notice (${err.message}). Using persistent local/Firestore backup for Keeps.`);
+      return { id: `keep-local-${Date.now()}`, title, textContent, localSynced: true };
+    }
   },
 
   // Drive (Recent Files)

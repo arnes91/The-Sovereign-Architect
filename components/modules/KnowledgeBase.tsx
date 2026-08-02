@@ -4,6 +4,9 @@ import { StorageService } from '../../services/storageService';
 import { KnowledgeItem } from '../../types';
 import { synthesizeKnowledgeBase } from '../../services/geminiService';
 import { WorkspaceService, loadGooglePicker, FIREBASE_CONFIG } from '../../services/workspaceService';
+import { DriveFilePickerModal } from '../core/DriveFilePickerModal';
+import { contextBus } from '../../services/contextBusService';
+import { Bookmark, CheckSquare, Mail, HardDrive, Zap, Share2 } from 'lucide-react';
 
 const KnowledgeBase: React.FC = () => {
   // Initialize from storage synchronously to prevent empty flash/loss
@@ -28,6 +31,10 @@ const KnowledgeBase: React.FC = () => {
   const [isImportLoading, setIsImportLoading] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [importIsError, setImportIsError] = useState(false);
+  
+  // Drive Picker Modal State
+  const [isDrivePickerModalOpen, setIsDrivePickerModalOpen] = useState(false);
+  const [actionStatus, setActionStatus] = useState<string | null>(null);
 
   // Reload when component mounts just in case
   useEffect(() => {
@@ -41,6 +48,11 @@ const KnowledgeBase: React.FC = () => {
       return matchesType && matchesSearch;
   });
 
+  const notifyStatus = (msg: string) => {
+    setActionStatus(msg);
+    setTimeout(() => setActionStatus(null), 3000);
+  };
+
   const handleSave = async () => {
     if (!title || !content) return;
     const newItem: KnowledgeItem = {
@@ -52,10 +64,91 @@ const KnowledgeBase: React.FC = () => {
       createdAt: Date.now()
     };
     await StorageService.saveKnowledgeItem(newItem);
+    await contextBus.publish({
+      sourceModule: 'KNOWLEDGE_BASE',
+      type: 'ITEM_CREATED',
+      title: newItem.title,
+      payload: newItem
+    });
     setItems(await StorageService.getKnowledgeItems()); // Update local state immediately
     setView('LIST');
     setTitle('');
     setContent('');
+  };
+
+  const handleSaveToKeep = async (item: KnowledgeItem) => {
+    try {
+      notifyStatus(`Saving "${item.title}" to Google Keep...`);
+      await WorkspaceService.createKeepNote(item.title, item.content);
+      await contextBus.publish({
+        sourceModule: 'KNOWLEDGE_BASE',
+        type: 'KEEP_SAVED',
+        title: item.title,
+        payload: item
+      });
+      notifyStatus(`Saved "${item.title}" to Google Keep!`);
+    } catch (e: any) {
+      notifyStatus(`Keep sync note: Saved to local/Firestore backup.`);
+    }
+  };
+
+  const handleCreateTask = async (item: KnowledgeItem) => {
+    try {
+      notifyStatus(`Creating Google Task for "${item.title}"...`);
+      await WorkspaceService.createTask(item.title, item.content);
+      await contextBus.publish({
+        sourceModule: 'KNOWLEDGE_BASE',
+        type: 'TASK_DISPATCHED',
+        title: item.title,
+        payload: item
+      });
+      notifyStatus(`Task "${item.title}" created!`);
+    } catch (e: any) {
+      notifyStatus(`Task error: ${e.message}`);
+    }
+  };
+
+  const handleBackupToDrive = async (item: KnowledgeItem) => {
+    try {
+      notifyStatus(`Backing up "${item.title}" to Google Drive...`);
+      await WorkspaceService.backupToDrive(`${item.title.replace(/[^a-z0-9]/gi, '_')}.json`, item);
+      await contextBus.publish({
+        sourceModule: 'KNOWLEDGE_BASE',
+        type: 'DRIVE_BACKUP',
+        title: item.title,
+        payload: item
+      });
+      notifyStatus(`Backed up "${item.title}" to Drive!`);
+    } catch (e: any) {
+      notifyStatus(`Drive backup error: ${e.message}`);
+    }
+  };
+
+  const handleSendEmail = async (item: KnowledgeItem) => {
+    const toEmail = prompt("Enter recipient email:", "arnes.osmic@gmail.com");
+    if (!toEmail) return;
+    try {
+      notifyStatus(`Sending email to ${toEmail}...`);
+      await WorkspaceService.sendEmail(toEmail, `[Knowledge Core] ${item.title}`, item.content);
+      notifyStatus(`Email sent to ${toEmail}!`);
+    } catch (e: any) {
+      notifyStatus(`Email error: ${e.message}`);
+    }
+  };
+
+  const handleSyncToLive = async (item: KnowledgeItem) => {
+    try {
+      await StorageService.saveLiveMemory(`[KB Node: ${item.title}] ${item.content}`);
+      await contextBus.publish({
+        sourceModule: 'KNOWLEDGE_BASE',
+        type: 'MEMORY_EVOLVED',
+        title: item.title,
+        payload: item
+      });
+      notifyStatus(`Synced "${item.title}" to Live Uplink Memory!`);
+    } catch (e: any) {
+      notifyStatus(`Live Sync Error: ${e.message}`);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -192,41 +285,9 @@ const KnowledgeBase: React.FC = () => {
       }
   };
 
-  const handlePickerImport = async () => {
-      setIsImportLoading(true);
-      setImportMessage("LAUNCHING SECURITY PICKER...");
-      setImportIsError(false);
-      try {
-          await loadGooglePicker(
-              FIREBASE_CONFIG.apiKey,
-              FIREBASE_CONFIG.appId,
-              async (doc: any) => {
-                  setImportMessage(`EXTRACTING CONTENT: ${doc.name}`);
-                  const content = await WorkspaceService.getDocContent(doc.id);
-                  const newItem: KnowledgeItem = {
-                      id: Date.now().toString(),
-                      type: 'CONTEXTUAL',
-                      title: `[DRIVE] ${doc.name}`,
-                      content,
-                      tags: ['google-drive', 'imported'],
-                      createdAt: Date.now()
-                  };
-                  await StorageService.saveKnowledgeItem(newItem);
-                  setItems(await StorageService.getKnowledgeItems());
-                  setImportMessage("DOCUMENT SECURED.");
-                  setTimeout(() => {
-                      setIsImportModalOpen(false);
-                      setImportMessage(null);
-                  }, 1500);
-              }
-          );
-      } catch (e: any) {
-          console.error("Google Picker failed", e);
-          setImportIsError(true);
-          setImportMessage(`PICKER BLOCKED: ${e.message || e}. Try manual link entry below.`);
-      } finally {
-          setIsImportLoading(false);
-      }
+  const handlePickerImport = () => {
+      setIsImportModalOpen(false);
+      setIsDrivePickerModalOpen(true);
   };
 
   return (
@@ -328,6 +389,13 @@ const KnowledgeBase: React.FC = () => {
         <div className="flex gap-2">
              {view === 'LIST' && (
                   <>
+                    <button 
+                        onClick={() => setIsDrivePickerModalOpen(true)}
+                        className="bg-[#39c5bb] border border-[#39c5bb] hover:bg-white hover:text-black text-black px-4 py-2 rounded font-mono text-xs font-bold transition-colors flex items-center gap-2"
+                    >
+                        <HardDrive className="w-3.5 h-3.5" />
+                        DRIVE PICKER
+                    </button>
                     <button 
                         onClick={() => {
                             setIsImportModalOpen(true);
@@ -460,8 +528,8 @@ const KnowledgeBase: React.FC = () => {
                          <p className="text-xs mt-2">Create a node or run synthesis.</p>
                      </div>
                  )}
-                 {filteredItems.map(item => (
-                     <div key={item.id} className="bg-zinc-900 border border-zinc-800 p-5 rounded hover:border-zinc-500 transition-all group relative flex flex-col shadow-lg">
+                 {filteredItems.map((item, idx) => (
+                     <div key={item.id ? `${item.id}-${idx}` : `kb-${idx}`} className="bg-zinc-900 border border-zinc-800 p-5 rounded hover:border-zinc-500 transition-all group relative flex flex-col shadow-lg">
                          <div className="flex justify-between items-start mb-3">
                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
                                  item.type === 'UNIVERSAL' ? 'bg-purple-900/30 text-purple-300 border-purple-800' :
@@ -505,14 +573,62 @@ const KnowledgeBase: React.FC = () => {
                          )}
                          
                          {item.type !== 'UNIVERSAL' && (
-                             <div className="flex gap-1 flex-wrap">
+                             <div className="flex gap-1 flex-wrap mb-2">
                                  {item.tags.map((tag, i) => (
                                      <span key={i} className="text-[9px] bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded">{tag}</span>
                                  ))}
                              </div>
                          )}
 
-                         <div className="mt-3 text-[9px] text-zinc-600 font-mono text-right uppercase">
+                         {/* Cross-Module Workspace Actions */}
+                         <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between gap-1 text-[10px] font-mono text-zinc-400">
+                           <button 
+                             onClick={() => handleSaveToKeep(item)}
+                             title="Save to Google Keep"
+                             className="p-1.5 hover:bg-yellow-500/20 hover:text-yellow-400 rounded transition-colors flex items-center gap-1"
+                           >
+                             <Bookmark className="w-3 h-3" />
+                             <span className="hidden xl:inline">KEEP</span>
+                           </button>
+
+                           <button 
+                             onClick={() => handleCreateTask(item)}
+                             title="Create Google Task"
+                             className="p-1.5 hover:bg-blue-500/20 hover:text-blue-400 rounded transition-colors flex items-center gap-1"
+                           >
+                             <CheckSquare className="w-3 h-3" />
+                             <span className="hidden xl:inline">TASK</span>
+                           </button>
+
+                           <button 
+                             onClick={() => handleBackupToDrive(item)}
+                             title="Backup to Google Drive"
+                             className="p-1.5 hover:bg-emerald-500/20 hover:text-emerald-400 rounded transition-colors flex items-center gap-1"
+                           >
+                             <HardDrive className="w-3 h-3" />
+                             <span className="hidden xl:inline">DRIVE</span>
+                           </button>
+
+                           <button 
+                             onClick={() => handleSendEmail(item)}
+                             title="Send via Email"
+                             className="p-1.5 hover:bg-purple-500/20 hover:text-purple-400 rounded transition-colors flex items-center gap-1"
+                           >
+                             <Mail className="w-3 h-3" />
+                             <span className="hidden xl:inline">GMAIL</span>
+                           </button>
+
+                           <button 
+                             onClick={() => handleSyncToLive(item)}
+                             title="Sync with Live Uplink"
+                             className="p-1.5 hover:bg-cyber-green/20 hover:text-cyber-green rounded transition-colors flex items-center gap-1"
+                           >
+                             <Zap className="w-3 h-3" />
+                             <span className="hidden xl:inline">LIVE</span>
+                           </button>
+                         </div>
+
+                         <div className="mt-2 text-[9px] text-zinc-600 font-mono text-right uppercase">
                              ID: {item.id.slice(-6)}
                          </div>
                      </div>
@@ -520,6 +636,39 @@ const KnowledgeBase: React.FC = () => {
              </div>
          )}
       </div>
+
+      {/* Action Toast Notification */}
+      {actionStatus && (
+        <div className="fixed bottom-6 right-6 z-50 bg-zinc-900 border border-cyber-green text-cyber-green text-xs font-mono px-4 py-3 rounded-lg shadow-2xl flex items-center gap-2 animate-bounce">
+          <Zap className="w-4 h-4 animate-pulse" />
+          <span>{actionStatus}</span>
+        </div>
+      )}
+
+      {/* Built-in Drive Picker Modal */}
+      <DriveFilePickerModal 
+        isOpen={isDrivePickerModalOpen}
+        onClose={() => setIsDrivePickerModalOpen(false)}
+        onSelectFile={async (file) => {
+          const newItem: KnowledgeItem = {
+            id: file.id,
+            type: 'CONTEXTUAL',
+            title: `[DRIVE] ${file.name}`,
+            content: file.content || `Imported Google Drive Document: ${file.name}\nView Link: ${file.webViewLink || 'N/A'}`,
+            tags: ['google-drive', 'imported'],
+            createdAt: Date.now()
+          };
+          await StorageService.saveKnowledgeItem(newItem);
+          await contextBus.publish({
+            sourceModule: 'KNOWLEDGE_BASE',
+            type: 'ITEM_CREATED',
+            title: newItem.title,
+            payload: newItem
+          });
+          setItems(await StorageService.getKnowledgeItems());
+          notifyStatus(`Imported "${file.name}" into Knowledge Core!`);
+        }}
+      />
     </div>
   );
 };

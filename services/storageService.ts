@@ -22,10 +22,24 @@ const KEYS = {
 
 let isFirebaseBroken = false;
 
+const isFirebaseError = (msg: any): boolean => {
+    if (!msg) return false;
+    const str = typeof msg === 'string' ? msg : (msg.message || String(msg));
+    return (
+        str.includes('Firebase error') ||
+        str.includes('Database') ||
+        str.includes('Firestore') ||
+        str.includes('not found') ||
+        str.includes('timed out') ||
+        str.includes('RESOURCE_EXHAUSTED') ||
+        str.includes('failed-precondition')
+    );
+};
+
 const console = {
     ...globalThis.console,
     error: (message: any, ...optionalParams: any[]) => {
-        if (typeof message === 'string' && message.includes('Firebase error')) {
+        if (isFirebaseError(message)) {
             isFirebaseBroken = true; // Trip the circuit breaker
             globalThis.console.warn(message, ...optionalParams);
         } else {
@@ -43,7 +57,10 @@ const getOwnerId = () => {
     return auth.currentUser?.uid || null;
 };
 
-const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number = 3000): Promise<T> => {
+const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number = 2000): Promise<T> => {
+    if (isFirebaseBroken) {
+        throw new Error("Firebase is unavailable");
+    }
     let timeoutId: any;
     const timeoutPromise = new Promise<never>((_, reject) => {
         timeoutId = setTimeout(() => {
@@ -51,13 +68,18 @@ const withTimeout = async <T>(promise: Promise<T>, timeoutMs: number = 3000): Pr
             reject(new Error("Firestore operation timed out"));
         }, timeoutMs);
     });
-    return Promise.race([
-        promise.then((res) => {
-            clearTimeout(timeoutId);
-            return res;
-        }),
-        timeoutPromise
-    ]);
+    try {
+        return await Promise.race([
+            promise.then((res) => {
+                clearTimeout(timeoutId);
+                return res;
+            }),
+            timeoutPromise
+        ]);
+    } catch (err) {
+        isFirebaseBroken = true;
+        throw err;
+    }
 };
 
 export const StorageService = {

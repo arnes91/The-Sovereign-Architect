@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import { generateMusicalConcept } from '../../services/geminiService';
+import { KeepSyncService } from '../../services/keepSyncService';
+import { contextBus } from '../../services/contextBusService';
+import { Bookmark, Check, Music } from 'lucide-react';
 
 const AIComposer: React.FC = () => {
   const [genre, setGenre] = useState('');
@@ -7,6 +10,7 @@ const AIComposer: React.FC = () => {
   const [elements, setElements] = useState('');
   const [status, setStatus] = useState<'IDLE' | 'PROCESSING' | 'ERROR'>('IDLE');
   const [result, setResult] = useState<any | null>(null);
+  const [savedKeep, setSavedKeep] = useState(false);
 
   const handleCompose = async () => {
     if (!genre || !mood) return;
@@ -15,6 +19,15 @@ const AIComposer: React.FC = () => {
       const data = await generateMusicalConcept(genre, mood, elements);
       setResult(data);
       setStatus('IDLE');
+
+      if (data && data.title) {
+        await contextBus.publish({
+          sourceModule: 'AI_COMPOSER',
+          type: 'ITEM_CREATED',
+          title: `Musical Concept: ${data.title}`,
+          payload: data
+        });
+      }
     } catch (e) {
       console.error(e);
       setStatus('ERROR');
@@ -88,12 +101,39 @@ const AIComposer: React.FC = () => {
         <div className="flex-1 bg-black p-6 border border-zinc-800 rounded-lg overflow-y-auto">
             {result ? (
                 <div className="space-y-6 animate-in fade-in duration-500">
-                    <div className="border-b border-zinc-800 pb-4">
-                        <h1 className="text-3xl font-bold text-white mb-1">{result.title}</h1>
-                        <div className="flex gap-4 text-xs font-mono text-cyber-green">
-                            <span>{result.bpm} BPM</span>
-                            <span>KEY: {result.key}</span>
+                    <div className="border-b border-zinc-800 pb-4 flex justify-between items-start">
+                        <div>
+                            <h1 className="text-3xl font-bold text-white mb-1">{result.title}</h1>
+                            <div className="flex gap-4 text-xs font-mono text-cyber-green">
+                                <span>{result.bpm} BPM</span>
+                                <span>KEY: {result.key}</span>
+                            </div>
                         </div>
+                        <button
+                            onClick={async () => {
+                                const keepContent = `Title: ${result.title}\nBPM: ${result.bpm} | Key: ${result.key}\nChords: ${result.chordProgression}\nInstruments: ${(result.instruments || []).join(', ')}\n\nLyrics:\n${result.lyrics || 'N/A'}\n\nProduction Notes:\n${result.productionNotes || ''}`;
+                                await KeepSyncService.saveNote(
+                                    `Musical Concept: ${result.title}`,
+                                    keepContent,
+                                    'AI_COMPOSER'
+                                );
+                                setSavedKeep(true);
+                                setTimeout(() => setSavedKeep(false), 2000);
+                            }}
+                            className="text-xs font-mono bg-zinc-900 border border-zinc-700 hover:border-cyber-green text-zinc-300 hover:text-cyber-green px-3 py-1.5 rounded flex items-center gap-1.5 transition-colors"
+                        >
+                            {savedKeep ? (
+                                <>
+                                    <Check className="w-3.5 h-3.5 text-cyber-green" />
+                                    <span>SAVED TO KEEP</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Bookmark className="w-3.5 h-3.5" />
+                                    <span>SAVE TO GOOGLE KEEP</span>
+                                </>
+                            )}
+                        </button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

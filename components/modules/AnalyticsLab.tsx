@@ -3,8 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { analyzeDataFile } from '../../services/geminiService';
 import { ExternalApiService } from '../../services/externalApiService';
 import { StorageService } from '../../services/storageService';
+import { KeepSyncService } from '../../services/keepSyncService';
+import { useAppOrchestrator } from '../../context/AppOrchestratorContext';
 import { AnalyticsReport } from '../../types';
 import ReactMarkdown from 'react-markdown';
+import { Bookmark, Check, HardDrive, Sparkles } from 'lucide-react';
 
 interface UploadedFile {
     name: string;
@@ -22,6 +25,9 @@ const AnalyticsLab: React.FC<AnalyticsLabProps> = ({ demoTrigger }) => {
   const [status, setStatus] = useState<'IDLE' | 'FETCHING' | 'ANALYZING' | 'DONE'>('IDLE');
   const [showHistory, setShowHistory] = useState(false);
   const [reports, setReports] = useState<AnalyticsReport[]>([]);
+  const [savedKeep, setSavedKeep] = useState(false);
+
+  const { userPersona, liveMemorySummary, logAnalytics } = useAppOrchestrator();
 
   // Reload history on mount/view toggle
   useEffect(() => {
@@ -124,8 +130,8 @@ High correlation between *YouTube Shorts* views and *Spotify* surges.
               return;
           }
 
-          // Merge contexts
-          let combinedContext = `Analyzing ${files.length} Data Sources:\n\n`;
+          // Merge contexts with user persona & cross-module live memory
+          let combinedContext = `[PERSONALIZED STRATEGIC ARCHETYPE & CONTEXT]:\nName: ${userPersona.name} (${userPersona.alias})\nRole: ${userPersona.role}\nBio/System: ${userPersona.bio}\nTag: ${userPersona.systemTag}\n\n[LIVE CROSS-MODULE MEMORY RECALL]:\n${liveMemorySummary || "No active context history recorded yet."}\n\nAnalyzing ${files.length} Data Sources:\n\n`;
           files.forEach((f, i) => {
               combinedContext += `--- SOURCE ${i+1}: ${f.name} (${f.type}) ---\n`;
               // Truncate large files for context window safety
@@ -133,10 +139,11 @@ High correlation between *YouTube Shorts* views and *Spotify* surges.
               combinedContext += content + "\n\n";
           });
 
-          const prompt = "Analyze the provided data and give specific recommendations on cross-promoting YouTube content on Spotify, and vice versa. Focus on actionable insights based on the fetched statistics.";
+          const prompt = `Analyze the provided data specifically tailored for ${userPersona.alias}. Give actionable recommendations on cross-promoting YouTube content, Spotify tracks, and creative assets. Highlight algorithmic growth hacks, audience retention strategies, and high-impact monetization moves.`;
           const result = await analyzeDataFile(combinedContext, prompt);
           setAnalysis(result || "Analysis inconclusive.");
           setStatus('DONE');
+          logAnalytics('EXECUTE_ANALYSIS', `Analyzed ${files.length} sources for ${userPersona.alias}`);
 
           // Save Report
           const newReport: AnalyticsReport = {
@@ -255,23 +262,47 @@ High correlation between *YouTube Shorts* views and *Spotify* surges.
                       </div>
                   ) : analysis ? (
                       <div className="flex flex-col h-full">
-                          <div className="flex justify-end mb-4">
+                          <div className="flex justify-end gap-2 mb-4">
+                              <button
+                                  onClick={async () => {
+                                      await KeepSyncService.saveNote(
+                                          `Analytics Rundown (${new Date().toLocaleDateString()})`,
+                                          analysis,
+                                          'ANALYTICS_LAB'
+                                      );
+                                      setSavedKeep(true);
+                                      setTimeout(() => setSavedKeep(false), 2000);
+                                  }}
+                                  className="text-xs font-mono bg-zinc-900 text-zinc-300 border border-zinc-700 px-3 py-1.5 rounded hover:border-cyber-green hover:text-cyber-green transition-colors flex items-center gap-1.5"
+                              >
+                                  {savedKeep ? (
+                                      <>
+                                          <Check className="w-3.5 h-3.5 text-cyber-green" />
+                                          <span>SAVED TO KEEP</span>
+                                      </>
+                                  ) : (
+                                      <>
+                                          <Bookmark className="w-3.5 h-3.5" />
+                                          <span>SAVE TO GOOGLE KEEP</span>
+                                      </>
+                                  )}
+                              </button>
                               <button 
                                   onClick={async () => {
                                       const newReport: AnalyticsReport = {
                                           id: Date.now().toString(),
-                                          title: `Analysis: ${files.map(f => f.name).join(', ')}`,
+                                          title: `Analysis: ${files.map(f => f.name).join(', ') || 'Live Intelligence'}`,
                                           date: Date.now(),
                                           summary: analysis,
                                           tags: files.map(f => f.type)
                                       };
                                       await StorageService.saveAnalyticsReport(newReport);
                                       setReports(await StorageService.getAnalyticsReports());
-                                      alert('Report saved to history.');
+                                      alert('Report saved to local history.');
                                   }}
-                                  className="text-xs font-mono bg-cyber-green/20 text-cyber-green border border-cyber-green px-3 py-1 rounded hover:bg-cyber-green hover:text-black transition-colors"
+                                  className="text-xs font-mono bg-cyber-green/20 text-cyber-green border border-cyber-green px-3 py-1.5 rounded hover:bg-cyber-green hover:text-black transition-colors"
                               >
-                                  SAVE REPORT
+                                  SAVE LOCAL REPORT
                               </button>
                           </div>
                           <div className="prose prose-invert prose-sm max-w-none flex-1 overflow-y-auto">

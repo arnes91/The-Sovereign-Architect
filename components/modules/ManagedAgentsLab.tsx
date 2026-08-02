@@ -81,7 +81,7 @@ export const ManagedAgentsLab: React.FC = () => {
         )}
         
         {messages.map((msg, i) => (
-          <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+          <div key={msg.id || `msg-${i}`} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
             <div className={`max-w-[85%] rounded-lg p-4 ${msg.role === 'user' ? 'bg-zinc-800 text-white' : 'bg-zinc-900 border border-zinc-700 text-zinc-300'}`}>
               <div className="prose prose-invert prose-sm max-w-none">
                 <ReactMarkdown>{msg.text}</ReactMarkdown>

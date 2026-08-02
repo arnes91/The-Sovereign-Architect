@@ -237,7 +237,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                                     <div className="text-xs text-zinc-600 font-mono">No upcoming events detected.</div>
                                 ) : (
                                     calendarEvents.map((ev: any, idx) => (
-                                        <div key={idx} className="group p-3 border border-zinc-800/50 rounded hover:border-blue-500/30 bg-black transition-colors">
+                                        <div key={ev.id || `cal-${ev.summary || ''}-${idx}`} className="group p-3 border border-zinc-800/50 rounded hover:border-blue-500/30 bg-black transition-colors">
                                             <div className="text-sm font-bold text-zinc-200 mb-1 truncate">{ev.summary}</div>
                                             <div className="text-[10px] font-mono text-zinc-500">
                                                 {ev.start?.dateTime ? new Date(ev.start.dateTime).toLocaleString() : ev.start?.date}
@@ -256,7 +256,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                                     <div className="text-xs text-zinc-600 font-mono">No recent files detected.</div>
                                 ) : (
                                     recentFiles.slice(0, 5).map((file: any, idx) => (
-                                        <a href={file.webViewLink} target="_blank" rel="noreferrer" key={idx} className="block group p-3 border border-zinc-800/50 rounded hover:border-emerald-500/30 bg-black transition-colors">
+                                        <a href={file.webViewLink} target="_blank" rel="noreferrer" key={file.id || `file-${file.name || ''}-${idx}`} className="block group p-3 border border-zinc-800/50 rounded hover:border-emerald-500/30 bg-black transition-colors">
                                             <div className="text-sm font-bold text-zinc-200 mb-1 truncate group-hover:text-emerald-400">{file.name}</div>
                                             <div className="text-[10px] font-mono text-zinc-500 truncate">
                                                 {file.mimeType}
@@ -279,7 +279,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                                         const subject = headers.find((h:any) => h.name === 'Subject')?.value || 'No Subject';
                                         const from = headers.find((h:any) => h.name === 'From')?.value || 'Unknown';
                                         return (
-                                            <div key={idx} className="group p-3 border border-zinc-800/50 rounded hover:border-red-500/30 bg-black transition-colors">
+                                            <div key={email.id || `email-${idx}`} className="group p-3 border border-zinc-800/50 rounded hover:border-red-500/30 bg-black transition-colors">
                                                 <div className="text-sm font-bold text-zinc-200 mb-1 truncate">{subject}</div>
                                                 <div className="text-[10px] font-mono text-zinc-500 truncate">{from}</div>
                                             </div>
@@ -297,7 +297,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                                     <div className="text-xs text-zinc-600 font-mono">No active tasks.</div>
                                 ) : (
                                     tasks.slice(0, 5).map((task: any, idx) => (
-                                        <div key={idx} className="group p-3 border border-zinc-800/50 rounded hover:border-amber-500/30 bg-black transition-colors flex gap-3 items-start">
+                                        <div key={task.id || `task-${task.title || ''}-${idx}`} className="group p-3 border border-zinc-800/50 rounded hover:border-amber-500/30 bg-black transition-colors flex gap-3 items-start">
                                             <div className="mt-1 w-3 h-3 rounded-full border border-amber-500/50 flex-shrink-0"></div>
                                             <div>
                                                 <div className="text-sm font-bold text-zinc-200 mb-1">{task.title}</div>
@@ -317,7 +317,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                                     <div className="text-xs text-zinc-600 font-mono">No spaces found.</div>
                                 ) : (
                                     chatSpaces.slice(0, 4).map((space: any, idx) => (
-                                        <div key={idx} className="group p-3 border border-zinc-800/50 rounded hover:border-purple-500/30 bg-black transition-colors flex items-center gap-3">
+                                        <div key={space.name || space.id || `space-${idx}`} className="group p-3 border border-zinc-800/50 rounded hover:border-purple-500/30 bg-black transition-colors flex items-center gap-3">
                                             <div className="w-8 h-8 rounded bg-purple-900/30 border border-purple-500/30 flex items-center justify-center text-purple-400 font-bold">
                                                 #
                                             </div>
@@ -374,7 +374,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               .filter(l => logFilter === 'ALL' || l.category === logFilter)
               .slice()
               .reverse()
-              .map((log) => {
+              .map((log, idx) => {
                 let color = 'text-zinc-400';
                 if (log.category === 'SYSTEM') color = 'text-blue-400';
                 if (log.category === 'AGENT') color = 'text-[#ff00ff]';
@@ -383,7 +383,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                 if (log.category === 'ANALYTICS') color = 'text-amber-400';
 
                 return (
-                  <div key={log.id} className="border-b border-zinc-900/40 pb-1.5 last:border-0 hover:bg-zinc-900/30 px-1 transition-all">
+                  <div key={log.id ? `${log.id}-${idx}` : `log-${idx}`} className="border-b border-zinc-900/40 pb-1.5 last:border-0 hover:bg-zinc-900/30 px-1 transition-all">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-zinc-600">[{new Date(log.timestamp).toLocaleTimeString()}]</span>
                       <span className={`text-[10px] border px-1 ${color} border-current/20 bg-current/5 rounded font-bold`}>{log.category}</span>

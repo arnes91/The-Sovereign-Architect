@@ -108,6 +108,7 @@ export const LoggerService = {
     },
 
     logSystem: (message: string, metadata?: any) => log('SYSTEM', message, metadata),
+    logInfo: (message: string, metadata?: any) => log('SYSTEM', message, metadata),
     logAgent: (message: string, metadata?: any) => log('AGENT', message, metadata),
     logWorkspace: (message: string, metadata?: any) => log('WORKSPACE', message, metadata),
     logError: (message: string, metadata?: any) => log('ERROR', message, metadata),

@@ -3,8 +3,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { streamStrategyChat, generateSpeech, decodePCM } from '../../services/geminiService';
 import { StorageService } from '../../services/storageService';
+import { KeepSyncService } from '../../services/keepSyncService';
+import { LongTermMemoryService } from '../../services/longTermMemoryService';
+import { DriveFilePickerModal } from '../core/DriveFilePickerModal';
 import { PERSONALITIES } from '../../config/personalities';
-import { PROMPT_TEMPLATES } from '../../config/promptTemplates';
+import { HardDrive, Bookmark, Check } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -25,6 +28,9 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
   const [isMuted, setIsMuted] = useState(false);
   const [activeStyle, setActiveStyle] = useState<keyof typeof PERSONALITIES.AI_COMPANION.styles>('DEFAULT');
   const [memoryContext, setMemoryContext] = useState<string>("");
+  const [isDrivePickerOpen, setIsDrivePickerOpen] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<{ name: string; content?: string } | null>(null);
+  const [savedNoteId, setSavedNoteId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -108,7 +114,10 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
   };
 
   const handleSend = async (isDemo = false) => {
-    const textToSend = isDemo ? "Identify top 3 tasks to improve my Spotify algorithm reach today." : input;
+    let textToSend = isDemo ? "Identify top 3 tasks to improve my Spotify algorithm reach today." : input;
+    if (attachedFile && attachedFile.content) {
+      textToSend = `[ATTACHED DRIVE FILE: ${attachedFile.name}]\n${attachedFile.content}\n\nUSER PROMPT: ${textToSend}`;
+    }
     
     if (!textToSend.trim() || isStreaming) return;
 
@@ -121,7 +130,16 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
 
     setMessages(prev => [...prev, newMessage]);
     setInput('');
+    setAttachedFile(null);
     setIsStreaming(true);
+
+    LongTermMemoryService.saveConversationTurn({
+      id: newMessage.id,
+      moduleId: 'AI_COMPANION',
+      sender: 'user',
+      text: newMessage.content,
+      timestamp: Date.now()
+    }).catch(console.warn);
 
     // DEMO BYPASS
     if (isDemo) {
@@ -282,9 +300,9 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
                  <p className="font-mono text-xs text-zinc-600 mt-2">Current Mode: {PERSONALITIES.AI_COMPANION.styles[activeStyle].name}</p>
              </div>
         )}
-        {messages.map((msg) => (
-            <div key={msg.id} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                <div className={`max-w-[80%] rounded-xl p-4 ${
+        {messages.map((msg, idx) => (
+            <div key={msg.id ? `${msg.id}-${idx}` : `msg-${idx}`} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                <div className={`max-w-[80%] rounded-xl p-4 relative group ${
                     msg.role === 'user' 
                     ? 'bg-zinc-800 text-white rounded-br-none border border-zinc-700' 
                     : 'bg-black text-zinc-300 rounded-bl-none border border-zinc-900'
@@ -292,6 +310,34 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
                     <div className="prose prose-invert prose-sm max-w-none font-sans">
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
                     </div>
+
+                    {msg.role === 'model' && (
+                      <button
+                        onClick={async () => {
+                          const res = await KeepSyncService.saveNote(
+                            `AI Insight (${new Date().toLocaleTimeString()})`,
+                            msg.content,
+                            'AI_COMPANION'
+                          );
+                          setSavedNoteId(res.id);
+                          setTimeout(() => setSavedNoteId(null), 2000);
+                        }}
+                        className="mt-2 text-[10px] font-mono bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-cyber-green/50 text-zinc-400 hover:text-cyber-green px-2 py-1 rounded flex items-center gap-1 transition-colors"
+                        title="Save response as note to Google Keep"
+                      >
+                        {savedNoteId ? (
+                          <>
+                            <Check className="w-3 h-3 text-cyber-green" />
+                            <span>SAVED TO KEEP</span>
+                          </>
+                        ) : (
+                          <>
+                            <Bookmark className="w-3 h-3" />
+                            <span>SAVE TO GOOGLE KEEP</span>
+                          </>
+                        )}
+                      </button>
+                    )}
                 </div>
                 <span className="text-[10px] font-mono text-zinc-600 mt-1 px-1">
                     {msg.role === 'model' && 'AI • '}{msg.timestamp}
@@ -309,21 +355,39 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
         )}
         <div ref={messagesEndRef} />
       </div>
-      <div className="relative bg-zinc-900 border border-zinc-700 rounded-lg p-1 flex items-center">
+
+      {attachedFile && (
+        <div className="mb-2 px-3 py-1.5 bg-zinc-900 border border-cyber-green/40 rounded-lg flex items-center justify-between text-xs font-mono text-cyber-green">
+          <div className="flex items-center gap-2 truncate">
+            <HardDrive className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">ATTACHED DRIVE DOC: {attachedFile.name}</span>
+          </div>
+          <button onClick={() => setAttachedFile(null)} className="text-zinc-500 hover:text-white">✕</button>
+        </div>
+      )}
+
+      <div className="relative bg-zinc-900 border border-zinc-700 rounded-lg p-1 flex items-center gap-1">
+          <button
+            onClick={() => setIsDrivePickerOpen(true)}
+            className="p-2.5 rounded text-zinc-400 hover:text-cyber-green hover:bg-zinc-800 transition-colors shrink-0"
+            title="Attach file from Google Drive"
+          >
+            <HardDrive className="w-4 h-4" />
+          </button>
           <input 
             type="text" 
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             placeholder="Type your instruction..."
-            className="flex-1 bg-transparent text-white font-sans px-4 py-3 outline-none"
+            className="flex-1 bg-transparent text-white font-sans px-3 py-3 outline-none"
             disabled={isStreaming}
           />
           <button 
             onClick={() => handleSend()}
-            disabled={isStreaming || !input.trim()}
+            disabled={isStreaming || (!input.trim() && !attachedFile)}
             className={`p-3 rounded-md transition-colors ${
-                input.trim() && !isStreaming 
+                (input.trim() || attachedFile) && !isStreaming 
                 ? 'bg-cyber-green text-black hover:bg-emerald-400' 
                 : 'bg-zinc-800 text-zinc-500'
             }`}
@@ -331,6 +395,17 @@ const AICompanion: React.FC<AICompanionProps> = ({ demoTrigger }) => {
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M12 5l7 7-7 7" /></svg>
           </button>
       </div>
+
+      <DriveFilePickerModal 
+        isOpen={isDrivePickerOpen}
+        onClose={() => setIsDrivePickerOpen(false)}
+        onSelectFile={(file) => {
+          setAttachedFile({
+            name: file.name,
+            content: file.content
+          });
+        }}
+      />
     </div>
   );
 };

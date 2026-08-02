@@ -28,6 +28,12 @@ export class ModuleGuard extends React.Component<ModuleGuardProps, ModuleGuardSt
     console.error(`Uncaught error in module: ${this.props.moduleName}`, error, errorInfo);
   }
 
+  componentDidUpdate(prevProps: ModuleGuardProps) {
+    if (prevProps.moduleName !== this.props.moduleName && this.state.hasError) {
+      this.setState({ hasError: false, error: null });
+    }
+  }
+
   render() {
     if (this.state.hasError) {
       const isRegionError = this.state.error?.message?.includes("REGION_LOCKED") || this.state.error?.toString().includes("403");
@@ -80,3 +86,5 @@ export class ModuleGuard extends React.Component<ModuleGuardProps, ModuleGuardSt
     return this.props.children;
   }
 }
+
+export const ErrorBoundary = ModuleGuard;

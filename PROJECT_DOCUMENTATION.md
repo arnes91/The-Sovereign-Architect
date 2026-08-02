@@ -76,9 +76,41 @@ The application is a modular, multi-view React (Vite) single-page application bu
   2. Ripped out all simulation timeouts and replaced them with fully authentic multipart `FormData` uploads to the YouTube Data API v3 (`/upload/youtube/v3/videos`).
   3. Engineered automatic extraction and decoding of the AI-generated Base64 thumbnail to be pushed directly to the YouTube API (`/upload/youtube/v3/thumbnails/set`) as a secondary request immediately following a successful video publish.
 
+### 3.4 [RESOLVED] LoggerService.logInfo Missing Function Error
+* **Symptom:** Runtime error `LoggerService.logInfo is not a function` when publishing events over `contextBusService.ts`.
+* **Resolution:** Added `logInfo` to `LoggerService` in `/services/loggerService.ts`.
+
+### 3.5 [RESOLVED] Knowledge Base Import Doc API Error
+* **Symptom:** Clicking "Import Doc" in Knowledge Base threw a Google Picker API key authorization error.
+* **Resolution:** Replaced the legacy `gapi` picker load call in `KnowledgeBase.tsx` with the standardized, fully authentic `DriveFilePickerModal`.
+
+### 3.6 [RESOLVED] AI Assistant Mobile View Navigation Locking
+* **Symptom:** Opening AI modules on mobile caused the layout to trap the user, hiding top navigation.
+* **Resolution:** Created `AICoreHub.tsx` which consolidates **AI Companion**, **Strategy Node (Deep Architect)**, and **Live Uplink** into a single, unified, responsive module, accessible via mobile-friendly headers.
+
 ---
 
-## 4. Development Workflow
+## 5. Architectural Enhancements & Unified Orchestration Engine
+
+### 5.1 AppOrchestratorContext & Cross-Module Context Bus
+* **File:** `/context/AppOrchestratorContext.tsx`
+* **Role:** Serves as the global React context provider managing user persona state (Arnes Osmic / Brzi Arzi / Glitch Sovereign), live memory summaries, event bus subscriptions (`contextBusService.ts`), and unified analytics.
+
+### 5.2 LongTermMemoryService
+* **File:** `/services/longTermMemoryService.ts`
+* **Role:** Provides cloud-backed durable memory in Firestore (`agent_states`, `conversation_history`, `strategic_outcomes`) with local IndexedDB fallbacks (`idb-keyval`).
+
+### 5.3 KeepSyncService
+* **File:** `/services/keepSyncService.ts`
+* **Role:** Enables direct single-click saving of notes, insights, and musical/analytics rundowns to Google Keep, automatically mirroring them to the Knowledge Base.
+
+### 5.4 Unified Drive File Picker
+* **File:** `/components/core/DriveFilePickerModal.tsx`
+* **Role:** Standardized modal for searching, previewing, and importing Google Drive files into Knowledge Base, AI Companion, and Analytics Lab.
+
+---
+
+## 6. Development Workflow
 
 To maintain system integrity, prevent feature degradation, and ensure stable execution of complex modules, the following strict workflow MUST be adhered to for all future engineering interactions:
 
