@@ -74,7 +74,7 @@ async function startServer() {
       });
       const { model, contents, systemInstruction, responseMimeType } = req.body;
       const response = await ai.models.generateContent({
-        model: model || 'gemini-3.1-pro-preview',
+        model: model || 'gemini-2.5-pro',
         contents,
         config: { systemInstruction, responseMimeType }
       });
@@ -134,7 +134,7 @@ ${lyrics}`;
       }
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+        model: 'gemini-2.5-pro',
         contents: contents,
         config: { responseMimeType: 'application/json' }
       });

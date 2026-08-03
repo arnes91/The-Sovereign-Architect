@@ -72,7 +72,7 @@ const YouTubePipeline: React.FC = () => {
             `;
             
             const response = await safeApiCall(async () => await ai.models.generateContent({
-                model: 'gemini-3.1-flash',
+                model: 'gemini-2.5-flash',
                 contents: {
                     parts: [
                         { inlineData: { mimeType: mediaFile.type || 'audio/mp3', data: mediaBase64 } },
@@ -110,7 +110,7 @@ const YouTubePipeline: React.FC = () => {
             try {
                 const ai = getAI();
                 const imageResponse = await safeApiCall(async () => await ai.models.generateContent({
-                    model: 'gemini-3.1-flash-image',
+                    model: 'gemini-2.5-flash-image',
                     contents: {
                         parts: [{ text: newMetadata.thumbnailPrompt }]
                     },

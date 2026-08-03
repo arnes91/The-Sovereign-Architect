@@ -9,6 +9,8 @@ import { StorageService } from '../services/storageService';
 import { LoggerService, LogEntry } from '../services/loggerService';
 import PlaylistPulse from './modules/PlaylistPulse';
 import ReleasePipelineTracker from './modules/ReleasePipelineTracker';
+import { DemoShowcaseButton } from './DemoShowcaseButton';
+import { GenblazeB2Module } from './modules/GenblazeB2Module';
 
 interface DashboardProps {
     onNavigate?: (view: View) => void;
@@ -122,6 +124,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                         <div className="text-sm font-mono text-white">{user?.displayName || user?.email || 'GUEST_ENTITY'}</div>
                     </div>
                     <div className="flex gap-2">
+                        <DemoShowcaseButton />
                         {!workspaceAuth && (
                            <button 
                               onClick={handleWorkspaceLogin}
@@ -223,6 +226,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
             <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
             RELEASE AUTOMATION & GROWTH
         </h2>
+        <div className="mb-10">
+            <GenblazeB2Module />
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10 h-80">
             <ReleasePipelineTracker />
             <PlaylistPulse />
