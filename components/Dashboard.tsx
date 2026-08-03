@@ -124,7 +124,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
                         <div className="text-sm font-mono text-white">{user?.displayName || user?.email || 'GUEST_ENTITY'}</div>
                     </div>
                     <div className="flex gap-2">
-                        <DemoShowcaseButton />
+                        <DemoShowcaseButton onStartDemo={() => onNavigate?.(View.SHOWCASE_MODE)} />
                         {!workspaceAuth && (
                            <button 
                               onClick={handleWorkspaceLogin}

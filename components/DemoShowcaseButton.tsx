@@ -1,9 +1,13 @@
 import React, { useState, useRef } from 'react';
 import { Video, Download, ExternalLink, Play, CheckCircle } from 'lucide-react';
 
-export const DemoShowcaseButton = () => {
+interface DemoShowcaseButtonProps {
+  onStartDemo?: () => void;
+}
+
+export const DemoShowcaseButton: React.FC<DemoShowcaseButtonProps> = ({ onStartDemo }) => {
   const [isRecording, setIsRecording] = useState(false);
-  const [status, setStatus] = useState('START SHOWCASE & RECORD');
+  const [status, setStatus] = useState('AI SHOWCASE TOUR');
   const [progress, setProgress] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -13,6 +17,11 @@ export const DemoShowcaseButton = () => {
   };
 
   const startShowcase = async () => {
+    if (onStartDemo) {
+      onStartDemo();
+      return;
+    }
+
     try {
       // Attempt browser screen capture
       const stream = await navigator.mediaDevices.getDisplayMedia({

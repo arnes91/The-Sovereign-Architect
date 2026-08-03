@@ -145,8 +145,13 @@ async function startServer() {
 
       // 3. Prepare File Content
       const fileName = req.body.fileName || `genblaze_${Date.now()}.json`;
-      const fileContent = req.body.content || JSON.stringify(req.body.data || { prompt: req.body.prompt, timestamp: new Date().toISOString() }, null, 2);
-      const buffer = Buffer.from(fileContent, "utf-8");
+      let buffer: Buffer;
+      if (req.body.isBase64 && req.body.content) {
+        buffer = Buffer.from(req.body.content, "base64");
+      } else {
+        const fileContent = req.body.content || JSON.stringify(req.body.data || { prompt: req.body.prompt, timestamp: new Date().toISOString() }, null, 2);
+        buffer = Buffer.from(fileContent, "utf-8");
+      }
 
       // 4. Upload File
       const uploadFileRes = await fetch(uploadUrl, {
