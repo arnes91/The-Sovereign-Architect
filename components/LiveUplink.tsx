@@ -264,6 +264,79 @@ const LiveUplink: React.FC = () => {
             }
           } else if (msg.type === 'text') {
             sessionTranscriptsRef.current.push(`AI: ${msg.text}`);
+          } else if (msg.type === 'functionCall') {
+            const { call } = msg;
+            addLog(`Executing Tool: ${call.name}...`);
+            let result;
+            try {
+              if (call.name === "get_upcoming_calendar_events") {
+                result = await WorkspaceService.getUpcomingEvents();
+              } else if (call.name === "get_recent_emails") {
+                result = await WorkspaceService.getRecentEmails();
+              } else if (call.name === "send_email") {
+                result = await WorkspaceService.sendEmail(call.args.to, call.args.subject, call.args.bodyText);
+              } else if (call.name === "get_tasks") {
+                result = await WorkspaceService.getTasks();
+              } else if (call.name === "create_task") {
+                result = await WorkspaceService.createTask(call.args.title, call.args.notes, call.args.dueDate);
+              } else if (call.name === "create_keep_note") {
+                result = await WorkspaceService.createKeepNote(call.args.title, call.args.textContent);
+              } else if (call.name === "get_recent_drive_files") {
+                result = await WorkspaceService.getRecentFiles();
+              } else if (call.name === "search_drive_files") {
+                result = await WorkspaceService.searchFiles(call.args.query);
+              } else if (call.name === "read_drive_file") {
+                try {
+                  result = await WorkspaceService.getDocContent(call.args.fileId);
+                } catch (e: any) {
+                  result = { error: "Failed to read as Google Doc. It might be another format.", details: e.message };
+                }
+              } else if (call.name === "save_knowledge") {
+                const item = {
+                  id: `kb-ai-${Date.now()}`,
+                  title: call.args.title,
+                  content: call.args.content,
+                  type: call.args.type as 'NOTE' | 'LINK' | 'DOCUMENT' | 'IMAGE',
+                  createdAt: Date.now()
+                };
+                await StorageService.saveKnowledgeItem(item);
+                result = { success: true, message: `Knowledge item saved with id: ${item.id}` };
+              } else if (call.name === "execute_antigravity_script") {
+                addLog(`Antigravity Script Execution requested: ${call.args.command.substring(0, 30)}...`);
+                const req = await fetch('/api/agents/interact', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ input: call.args.command })
+                });
+                result = await req.json();
+              } else {
+                result = { error: "Unknown function call" };
+              }
+              
+              if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify({
+                  type: 'functionResponse',
+                  response: {
+                    id: call.id,
+                    name: call.name,
+                    response: { result }
+                  }
+                }));
+              }
+              addLog(`Tool ${call.name} executed successfully.`);
+            } catch (err: any) {
+              if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify({
+                  type: 'functionResponse',
+                  response: {
+                    id: call.id,
+                    name: call.name,
+                    response: { error: err.message || "Execution failed" }
+                  }
+                }));
+              }
+              addLog(`Tool ${call.name} failed: ${err.message}`);
+            }
           } else if (msg.type === 'turnComplete') {
             const currentSessionLog = sessionTranscriptsRef.current.join(" | ");
             if (currentSessionLog.length > 0) {

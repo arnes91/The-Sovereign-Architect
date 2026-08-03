@@ -46,6 +46,18 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
 
   // Generic Gemini API Proxy for Chat and VJ
+  app.get("/api/gemini/models", async (req, res) => {
+    try {
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      if (!apiKey) return res.status(401).json({ error: "Missing API Key" });
+      const response = await fetch("https://generativelanguage.googleapis.com/v1alpha/models?key=" + apiKey);
+      const data = await response.json();
+      res.json(data);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.get("/api/gemini/token", (req, res) => {
     const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
     if (!apiKey) return res.status(401).json({ error: "Missing API Key" });
@@ -269,7 +281,118 @@ ${lyrics}`;
               speechConfig: {
                 voiceConfig: { prebuiltVoiceConfig: { voiceName: voiceSelected } }
               },
-              systemInstruction: systemInstruction
+              systemInstruction: systemInstruction,
+              tools: [
+                { googleSearch: {} },
+                {
+                  functionDeclarations: [
+                    {
+                      name: "get_upcoming_calendar_events",
+                      description: "Retrieve the upcoming events from the user's Google Calendar.",
+                      parameters: { type: "OBJECT", properties: {} }
+                    },
+                    {
+                      name: "get_recent_emails",
+                      description: "Query recent incoming emails from Gmail inbox.",
+                      parameters: { type: "OBJECT", properties: {} }
+                    },
+                    {
+                      name: "send_email",
+                      description: "Send an email to a specific address.",
+                      parameters: {
+                        type: "OBJECT",
+                        properties: {
+                          to: { type: "STRING" },
+                          subject: { type: "STRING" },
+                          bodyText: { type: "STRING" }
+                        },
+                        required: ["to", "subject", "bodyText"]
+                      }
+                    },
+                    {
+                      name: "get_tasks",
+                      description: "Get outstanding Google Tasks.",
+                      parameters: { type: "OBJECT", properties: {} }
+                    },
+                    {
+                      name: "create_task",
+                      description: "Create a Google Task.",
+                      parameters: {
+                        type: "OBJECT",
+                        properties: {
+                          title: { type: "STRING" },
+                          notes: { type: "STRING" },
+                          dueDate: { type: "STRING", description: "ISO 8601 date string" }
+                        },
+                        required: ["title"]
+                      }
+                    },
+                    {
+                      name: "create_keep_note",
+                      description: "Create a Google Keep note to store ideas or context.",
+                      parameters: {
+                        type: "OBJECT",
+                        properties: {
+                          title: { type: "STRING" },
+                          textContent: { type: "STRING" }
+                        },
+                        required: ["title", "textContent"]
+                      }
+                    },
+                    {
+                      name: "get_recent_drive_files",
+                      description: "Get a list of recently modified Google Drive files.",
+                      parameters: { type: "OBJECT", properties: {} }
+                    },
+                    {
+                      name: "search_drive_files",
+                      description: "Search for files in Google Drive using a query.",
+                      parameters: {
+                        type: "OBJECT",
+                        properties: {
+                          query: { type: "STRING", description: "Search query string" }
+                        },
+                        required: ["query"]
+                      }
+                    },
+                    {
+                      name: "read_drive_file",
+                      description: "Read the content of a Google Drive file (Docs or plain text).",
+                      parameters: {
+                        type: "OBJECT",
+                        properties: {
+                          fileId: { type: "STRING" }
+                        },
+                        required: ["fileId"]
+                      }
+                    },
+                    {
+                      name: "save_knowledge",
+                      description: "Save an organized thought, note, or piece of knowledge directly to the user's permanent Knowledge Base. Use this autonomously to consolidate important information from the conversation, or when the user asks you to save something.",
+                      parameters: {
+                        type: "OBJECT",
+                        properties: {
+                          title: { type: "STRING" },
+                          content: { type: "STRING" },
+                          type: { type: "STRING", enum: ["NOTE", "LINK", "DOCUMENT", "IMAGE"] }
+                        },
+                        required: ["title", "content", "type"]
+                      }
+                    },
+                    {
+                      name: "execute_antigravity_script",
+                      description: "Execute arbitrary bash script or nodejs code in the Managed Agents Lab environment. Use this to do vibe-coding, write files, create content, or run tasks autonomously.",
+                      parameters: {
+                        type: "OBJECT",
+                        properties: {
+                          command: { type: "STRING", description: "The script or command to run" }
+                        },
+                        required: ["command"]
+                      }
+                    }
+                  ]
+                }
+              ]
             },
             callbacks: {
               onopen: () => {
@@ -290,6 +413,12 @@ ${lyrics}`;
 
                   if (message.serverContent?.turnComplete) {
                     clientWs.send(JSON.stringify({ type: "turnComplete" }));
+                  }
+
+                  if (message.toolCall && message.toolCall.functionCalls) {
+                    message.toolCall.functionCalls.forEach((call: any) => {
+                      clientWs.send(JSON.stringify({ type: "functionCall", call }));
+                    });
                   }
                 } catch (e: any) {
                   debugLog("Error in onmessage: " + e.message);
@@ -361,6 +490,16 @@ ${lyrics}`;
                 data: msg.data
               }
             });
+          }
+        } else if (msg.type === "functionResponse") {
+          if (session) {
+            try {
+              session.sendToolResponse({
+                functionResponses: [msg.response]
+              });
+            } catch (err: any) {
+              debugLog("Error sending tool response: " + err.message);
+            }
           }
         }
       } catch (err: any) {

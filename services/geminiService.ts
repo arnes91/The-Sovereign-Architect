@@ -109,7 +109,7 @@ export const generateDBZTaunt = async (powerLevel: number, stats: any) => {
       );
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-flash',
+        model: 'gemini-3.6-flash',
         contents: prompt,
         config: { temperature: 0.9 }
       });
@@ -127,7 +127,7 @@ export const analyzeDBZVision = async (base64Image: string) => {
         const prompt = PROMPT_TEMPLATES.DBZ_VISION_ANALYSIS;
         
         const response = await ai.models.generateContent({
-            model: 'gemini-3.1-flash',
+            model: 'gemini-3.6-flash',
             contents: {
                 parts: [
                     { inlineData: { data: base64Image, mimeType: 'image/jpeg' } },
@@ -284,7 +284,7 @@ export const analyzeDataFile = async (content: string, fileName: string) => {
         const safeContent = content.length > 500000 ? content.substring(0, 500000) + "\n...[TRUNCATED]" : content;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-3.1-flash',
+            model: 'gemini-3.6-flash',
             contents: `
                 ${prompt}
                 
@@ -306,7 +306,7 @@ export const analyzeImage = async (prompt: string, image: { data: string, mimeTy
     return safeApiCall(async () => {
         const ai = getAI();
         const response = await ai.models.generateContent({
-            model: 'gemini-3.1-flash',
+            model: 'gemini-3.6-flash',
             contents: {
                 parts: [
                     { inlineData: { data: image.data, mimeType: image.mimeType } },
@@ -322,7 +322,7 @@ export const analyzeVideo = async (prompt: string, video: { data: string, mimeTy
     return safeApiCall(async () => {
         const ai = getAI();
         const response = await ai.models.generateContent({
-            model: 'gemini-3.1-flash',
+            model: 'gemini-3.6-flash',
             contents: {
                 parts: [
                     { inlineData: { data: video.data, mimeType: video.mimeType } },
@@ -338,7 +338,7 @@ export const transcribeAudio = async (prompt: string, audio: { data: string, mim
     return safeApiCall(async () => {
         const ai = getAI();
         const response = await ai.models.generateContent({
-            model: 'gemini-3.1-flash',
+            model: 'gemini-3.6-flash',
             contents: {
                 parts: [
                     { inlineData: { data: audio.data, mimeType: audio.mimeType } },
@@ -354,7 +354,7 @@ export const complexAnalysis = async (prompt: string, media: { data: string, mim
     return safeApiCall(async () => {
         const ai = getAI();
         const response = await ai.models.generateContent({
-            model: 'gemini-3.1-flash',
+            model: 'gemini-3.6-flash',
             contents: {
                 parts: [
                     { inlineData: { data: media.data, mimeType: media.mimeType } },
@@ -376,23 +376,23 @@ export const complexAnalysis = async (prompt: string, media: { data: string, mim
 export const streamStrategyChat = async function* (history: any[], newMessage: string, mode: 'THINKING' | 'SEARCH' | 'FAST' | 'STANDARD', systemInstruction?: string) {
   const ai = getAI();
   
-  let model = 'gemini-3.1-flash';
+  let model = 'gemini-3.6-flash';
   let config: any = {};
   
   if (mode === 'THINKING') {
-      model = 'gemini-3.1-flash';
+      model = 'gemini-3.6-flash';
       config = {
           thinkingConfig: { thinkingLevel: 1 } // ThinkingLevel.HIGH
       };
   } else if (mode === 'SEARCH') {
-      model = 'gemini-3.1-flash';
+      model = 'gemini-3.6-flash';
       config = {
           tools: [{ googleSearch: {} }]
       };
   } else if (mode === 'FAST') {
       model = 'gemini-3.1-flash-lite';
   } else if (mode === 'STANDARD') {
-      model = 'gemini-3.1-flash';
+      model = 'gemini-3.6-flash';
   }
 
   // Use Centralized Prompt if default
@@ -442,7 +442,7 @@ export const synthesizeKnowledgeBase = async (rawDataDump: string) => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                model: 'gemini-3.1-flash',
+                model: 'gemini-3.6-flash',
                 contents,
                 responseMimeType: "application/json"
             })
@@ -468,7 +468,7 @@ export const generateMusicalConcept = async (genre: string, mood: string, elemen
         const prompt = PROMPT_TEMPLATES.AI_COMPOSER(genre, mood, elements);
         
         const response = await ai.models.generateContent({
-            model: 'gemini-3.1-flash',
+            model: 'gemini-3.6-flash',
             contents: prompt,
             config: {
                 responseMimeType: "application/json",

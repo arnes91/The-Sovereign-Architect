@@ -301,6 +301,13 @@ export const WorkspaceService = {
     const data = await fetchWithAuth(`https://www.googleapis.com/drive/v3/files?orderBy=modifiedTime desc&pageSize=10&fields=files(id,name,mimeType,modifiedTime,webViewLink)`);
     return data.files || [];
   },
+
+  searchFiles: async (query: string) => {
+    LoggerService.logWorkspace(`Searching Google Drive for: ${query}...`);
+    const q = encodeURIComponent(query);
+    const data = await fetchWithAuth(`https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=modifiedTime desc&pageSize=10&fields=files(id,name,mimeType,modifiedTime,webViewLink)`);
+    return data.files || [];
+  },
   
   // Docs text
   getDocContent: async (documentId: string) => {
