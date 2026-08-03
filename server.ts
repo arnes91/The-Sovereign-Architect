@@ -74,7 +74,7 @@ async function startServer() {
       });
       const { model, contents, systemInstruction, responseMimeType } = req.body;
       const response = await ai.models.generateContent({
-        model: model || 'gemini-2.5-pro',
+        model: model || 'gemini-3.1-flash',
         contents,
         config: { systemInstruction, responseMimeType }
       });
@@ -102,6 +102,83 @@ async function startServer() {
       res.json({ embedding: response.embeddings?.[0]?.values });
     } catch (error: any) {
       console.error("Embed Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Backblaze B2 Direct Storage API
+  app.post("/api/b2/upload", async (req, res) => {
+    try {
+      const keyID = process.env.B2_KEY_ID || "003c553ee5ef8f00000000001";
+      const applicationKey = process.env.B2_APPLICATION_KEY || "K003TWfdE1Z6qhXnoamxclAQf+q8gz8";
+      const bucketId = process.env.B2_BUCKET_ID || "acc525732eaec59e9ff80f10";
+      const bucketName = process.env.B2_BUCKET_NAME || "brziai";
+
+      const authHeader = "Basic " + Buffer.from(`${keyID}:${applicationKey}`).toString("base64");
+      
+      // 1. Authorize account
+      const authRes = await fetch("https://api.backblazeb2.com/b2api/v2/b2_authorize_account", {
+        headers: { Authorization: authHeader }
+      });
+      const authData = await authRes.json();
+      if (!authRes.ok) {
+        throw new Error(`B2 Auth Failed: ${JSON.stringify(authData)}`);
+      }
+
+      const { apiUrl, authorizationToken, downloadUrl } = authData;
+
+      // 2. Get Upload URL
+      const getUploadUrlRes = await fetch(`${apiUrl}/b2api/v2/b2_get_upload_url`, {
+        method: "POST",
+        headers: {
+          Authorization: authorizationToken,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ bucketId })
+      });
+      const uploadUrlData = await getUploadUrlRes.json();
+      if (!getUploadUrlRes.ok) {
+        throw new Error(`B2 Get Upload URL Failed: ${JSON.stringify(uploadUrlData)}`);
+      }
+
+      const { uploadUrl, authorizationToken: uploadAuthToken } = uploadUrlData;
+
+      // 3. Prepare File Content
+      const fileName = req.body.fileName || `genblaze_${Date.now()}.json`;
+      const fileContent = req.body.content || JSON.stringify(req.body.data || { prompt: req.body.prompt, timestamp: new Date().toISOString() }, null, 2);
+      const buffer = Buffer.from(fileContent, "utf-8");
+
+      // 4. Upload File
+      const uploadFileRes = await fetch(uploadUrl, {
+        method: "POST",
+        headers: {
+          Authorization: uploadAuthToken,
+          "X-Bz-File-Name": encodeURIComponent(fileName),
+          "Content-Type": req.body.contentType || "application/json",
+          "X-Bz-Content-Sha1": "do_not_verify",
+          "Content-Length": buffer.length.toString()
+        },
+        body: buffer
+      });
+
+      const uploadResult = await uploadFileRes.json();
+      if (!uploadFileRes.ok) {
+        throw new Error(`B2 Upload File Failed: ${JSON.stringify(uploadResult)}`);
+      }
+
+      const fileUrl = `${downloadUrl}/file/${bucketName}/${fileName}`;
+      res.json({
+        success: true,
+        fileName,
+        bucketName,
+        bucketId,
+        fileId: uploadResult.fileId,
+        fileUrl,
+        b2Uri: `b2://${bucketName}/${fileName}`
+      });
+
+    } catch (error: any) {
+      console.error("B2 Upload Error:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -134,7 +211,7 @@ ${lyrics}`;
       }
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-pro',
+        model: 'gemini-3.1-flash',
         contents: contents,
         config: { responseMimeType: 'application/json' }
       });
